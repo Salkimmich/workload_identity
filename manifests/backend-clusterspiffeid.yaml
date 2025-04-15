@@ -1,0 +1,10 @@
+apiVersion: spiffeid.spiffe.io/v1alpha1
+kind: ClusterSPIFFEID
+metadata:
+  name: backend-spiffeid
+spec:
+  spiffeID: spiffe://example.org/backend
+  podSelector:
+    matchLabels:
+      app: backend
+  ttl: 3600

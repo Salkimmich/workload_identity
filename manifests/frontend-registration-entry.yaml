@@ -1,0 +1,11 @@
+apiVersion: spiffe.io/v1alpha1
+kind: RegistrationEntry
+metadata:
+  name: frontend-to-backend
+spec:
+  parentId: spiffe://example.org/spire/agent/k8s_psat/demo-cluster/node
+  spiffeId: spiffe://example.org/frontend
+  selector:
+    matchLabels:
+      app: frontend
+  ttl: 3600

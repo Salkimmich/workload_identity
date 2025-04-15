@@ -1,0 +1,31 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: frontend
+  template:
+    metadata:
+      labels:
+        app: frontend
+    spec:
+      containers:
+      - name: frontend
+        image: your-registry/frontend-image
+        command: ["/bin/sleep", "infinity"]
+        volumeMounts:
+        - name: spire-agent-socket
+          mountPath: /run/spire/sockets
+        - name: spiffe-helper-config
+          mountPath: /run/spire/config
+      volumes:
+      - name: spire-agent-socket
+        hostPath:
+          path: /run/spire/sockets
+          type: Directory
+      - name: spiffe-helper-config
+        configMap:
+          name: spiffe-sidecar-config
