@@ -1,7 +1,8 @@
-# Jump into the core file for a the README on the actual configuration example with code! 
+# Workload Identity Explainer Repo
 
+#### Jump into the 'core' file for a complete configuration example on [SPIFFE + mTLS implementation](https://github.com/Salkimmich/workload_identity/tree/main/core) with code! 
 
-# Workload Identity in Modern Cloud Systems: A Deep Dive into SPIFFE, SPIRE, and Beyond
+## Workload Identity in Modern Cloud Systems: A Deep Dive into SPIFFE, SPIRE, and Beyond
 
 In today's distributed and cloud-native environments, identity is no longer just about users. Workloads—such as applications, services, containers, and virtual machines—must also have identities. These identities must be secure, verifiable, and ephemeral to meet the demands of modern security practices.
 
