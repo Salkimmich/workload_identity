@@ -1,3 +1,5 @@
+# Jump into the core file for a the README on the actual configuration example with code! 
+
 
 # Workload Identity in Modern Cloud Systems: A Deep Dive into SPIFFE, SPIRE, and Beyond
 
