@@ -1,0 +1,43 @@
+# Workload Identity Configuration
+# This file defines the core settings for workload identity management
+# Note: This is a basic configuration file. For production use, additional security settings should be configured.
+
+apiVersion: security.workload/v1
+kind: WorkloadIdentityConfig
+
+# Basic identity settings
+identity:
+  # The unique identifier for this workload
+  workloadId: "example-workload-001"
+  
+  # The type of identity provider to use
+  provider: "kubernetes"  # Options: kubernetes, aws, azure, gcp
+  
+  # Token lifetime in seconds (default: 3600)
+  tokenLifetime: 3600
+
+# Authentication settings
+authentication:
+  # Enable mTLS for service-to-service communication
+  mtls:
+    enabled: true
+    # Certificate rotation period in hours
+    certRotationPeriod: 24
+
+# Authorization settings
+authorization:
+  # Default role for this workload
+  defaultRole: "service-role"
+  
+  # List of allowed service accounts
+  allowedServiceAccounts:
+    - "default"
+    - "system:serviceaccount:default:example-sa"
+
+# Audit logging configuration
+audit:
+  enabled: true
+  # Log level: debug, info, warn, error
+  level: "info"
+  # Output format: json, text
+  format: "json" 

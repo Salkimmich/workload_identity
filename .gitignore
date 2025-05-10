@@ -1,0 +1,86 @@
+# macOS system files
+.DS_Store
+.AppleDouble
+.LSOverride
+Icon
+._*
+.DocumentRevisions-V100
+.fseventsd
+.Spotlight-V100
+.TemporaryItems
+.Trashes
+.VolumeIcon.icns
+.com.apple.timemachine.donotpresent
+
+# IDE and editor files
+.idea/
+.vscode/
+*.swp
+*.swo
+*~
+.project
+.classpath
+.settings/
+*.sublime-workspace
+*.sublime-project
+
+# Go specific
+*.exe
+*.exe~
+*.dll
+*.so
+*.dylib
+*.test
+*.out
+/vendor/
+/bin/
+/pkg/
+
+# Kubernetes specific
+kubeconfig
+*.kubeconfig
+*.pem
+*.key
+*.crt
+*.csr
+*.srl
+
+# Terraform specific
+.terraform/
+*.tfstate
+*.tfstate.*
+*.tfvars
+.terraformrc
+terraform.rc
+.terraform.lock.hcl
+
+# Logs and databases
+*.log
+*.sql
+*.sqlite
+logs/
+tmp/
+
+# Build and binary files
+bin/
+dist/
+build/
+*.o
+*.a
+*.so
+*.dylib
+
+# Environment and secrets
+.env
+.env.*
+*.pem
+*.key
+*.crt
+secrets/
+credentials/
+
+# Temporary files
+*.tmp
+*.temp
+.cache/
+temp/ 

@@ -1,0 +1,120 @@
+# SPIRE RBAC Configuration
+# This file defines the RBAC (Role-Based Access Control) settings for SPIRE components,
+# including service accounts, roles, and role bindings for both the server and agent.
+
+---
+# SPIRE Server Service Account
+# This service account is used by the SPIRE server to interact with the Kubernetes API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-server
+  namespace: spire
+---
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-agent
+  namespace: spire
+---
+# SPIRE Server Cluster Role
+# Defines the permissions needed by the SPIRE server to manage node attestation
+# and workload identity
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-server-trust-role
+rules:
+  # Permission to get nodes
+  # Required for node attestation
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to manage service accounts
+  # Required for workload attestation
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to manage pods
+  # Required for workload attestation
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to manage namespaces
+  # Required for workload attestation
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+# SPIRE Server Cluster Role Binding
+# Binds the SPIRE server service account to its cluster role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-server-trust-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-server-trust-role
+subjects:
+- kind: ServiceAccount
+  name: spire-server
+  namespace: spire
+---
+# SPIRE Agent Service Account
+# This service account is used by the SPIRE agent to interact with the Kubernetes API
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: spire-agent
+  namespace: spire
+---
+# SPIRE Agent Cluster Role
+# Defines the permissions needed by the SPIRE agent to attest node identity
+# and manage workload identity
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: spire-agent-cluster-role
+rules:
+  # Permission to get nodes
+  # Required for node attestation
+  - apiGroups: [""]
+    resources: ["nodes"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to manage service accounts
+  # Required for workload attestation
+  - apiGroups: [""]
+    resources: ["serviceaccounts"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to manage pods
+  # Required for workload attestation
+  - apiGroups: [""]
+    resources: ["pods"]
+    verbs: ["get", "list", "watch"]
+  
+  # Permission to manage namespaces
+  # Required for workload attestation
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+---
+# SPIRE Agent Cluster Role Binding
+# Binds the SPIRE agent service account to its cluster role
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: spire-agent-cluster-role-binding
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: spire-agent-cluster-role
+subjects:
+- kind: ServiceAccount
+  name: spire-agent
+  namespace: spire 

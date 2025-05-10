@@ -1,0 +1,43 @@
+# Network Policies Configuration
+# This file defines network-level policies for workload identity
+# Note: This is a basic configuration. Production environments need more restrictive policies.
+
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: workload-identity-network-policy
+  namespace: default
+spec:
+  podSelector:
+    matchLabels:
+      app: workload-identity
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: default
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+  egress:
+  - to:
+    - namespaceSelector:
+        matchLabels:
+          name: default
+    ports:
+    - protocol: TCP
+      port: 443
+    - protocol: TCP
+      port: 80
+
+# Note: This is a basic network policy. Production environments should:
+# - Define more specific pod selectors
+# - Add IP-based restrictions
+# - Include DNS policies
+# - Add more granular port restrictions
+# - Include protocol-specific rules 
