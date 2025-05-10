@@ -1,0 +1,13 @@
+{
+  "agent_address": "unix:///run/spiffe/workload/spire-agent.sock",
+  "cert_dir": "/tmp",
+  "svid_file_name": "svid.pem",
+  "key_file_name": "key.pem",
+  "bundle_file_name": "bundle.pem",
+  "renew_signal": "SIGHUP",
+  "log_level": "info",
+  "add_intermediates_to_bundle": true,
+  "insecure_skip_verify": false,
+  "retry_interval": "5s",
+  "max_retries": 5
+}

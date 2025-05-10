@@ -1,0 +1,26 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spiffe-sidecar-config
+data:
+  sidecar-config.json: |
+    {
+      "agentSocketPath": "/run/spire/sockets/agent.sock",
+      "cmd": "",
+      "cmdArgs": [],
+      "certDir": "/tmp",
+      "renewSignal": "",
+      "svidFileName": "svid.pem",
+      "svidKeyFileName": "key.pem",
+      "svidBundleFileName": "bundle.pem",
+      "regSvidFileName": "",
+      "timeout": "1m",
+      "certCheck": {
+        "checkFreq": "1m",
+        "errorExec": {
+          "args": null,
+          "cmd": "",
+          "timeout": ""
+        }
+      }
+    }

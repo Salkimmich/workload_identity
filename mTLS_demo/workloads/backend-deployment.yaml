@@ -1,0 +1,204 @@
+# Backend service deployment configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+  namespace: demo
+  labels:
+    app: backend
+spec:
+  replicas: 2  # Run 2 replicas for high availability
+  selector:
+    matchLabels:
+      app: backend
+  template:
+    metadata:
+      labels:
+        app: backend
+      annotations:
+        # Prometheus scraping configuration
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "8080"
+        prometheus.io/path: "/metrics"
+        prometheus.io/scheme: "http"
+        # SPIFFE annotations
+        spiffe.io/spiffe-id: "spiffe://example.org/ns/demo/sa/backend"
+        spiffe.io/trust-domain: "example.org"
+    spec:
+      # Pod security context
+      securityContext:
+        runAsNonRoot: true
+        runAsUser: 1000
+        runAsGroup: 1000
+        fsGroup: 1000
+        seccompProfile:
+          type: RuntimeDefault  # Use runtime default seccomp profile
+        capabilities:
+          drop:
+            - ALL  # Drop all Linux capabilities
+      containers:
+      - name: backend
+        image: backend:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 8443
+          name: https  # Main HTTPS port
+        - containerPort: 8080
+          name: metrics  # Metrics endpoint port
+        resources:
+          # Resource requests and limits
+          requests:
+            cpu: "100m"
+            memory: "128Mi"
+            ephemeral-storage: "1Gi"
+          limits:
+            cpu: "200m"
+            memory: "256Mi"
+            ephemeral-storage: "2Gi"
+        # Health check probes
+        livenessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        readinessProbe:
+          httpGet:
+            path: /health
+            port: 8080
+          initialDelaySeconds: 5
+          periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+        # Volume mounts for SPIFFE
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /run/spiffe/workload
+          readOnly: true
+        - name: spiffe-config
+          mountPath: /run/spiffe/config
+          readOnly: true
+        - name: spiffe-certs
+          mountPath: /tmp
+          readOnly: true
+        env:
+        - name: GOMAXPROCS
+          value: "1"  # Limit CPU usage
+        - name: GODEBUG
+          value: "netdns=go"  # Use Go DNS resolver
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: "/run/spiffe/workload/workload_api.sock"
+        - name: SPIFFE_TRUST_DOMAIN
+          value: "example.org"
+        # Container security context
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+              - ALL
+      # SPIFFE helper sidecar
+      - name: spiffe-helper
+        image: ghcr.io/spiffe/spiffe-helper:latest
+        args: ["-config", "/run/spiffe/config/helper.conf"]
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /run/spiffe/workload
+        - name: spiffe-config
+          mountPath: /run/spiffe/config
+          readOnly: true
+        - name: spiffe-certs
+          mountPath: /tmp
+        securityContext:
+          allowPrivilegeEscalation: false
+          readOnlyRootFilesystem: true
+          runAsNonRoot: true
+          runAsUser: 1000
+          runAsGroup: 1000
+          capabilities:
+            drop:
+              - ALL
+      # Volume definitions
+      volumes:
+      - name: spiffe-workload-api
+        emptyDir:
+          medium: Memory  # Use memory-backed storage
+      - name: spiffe-config
+        configMap:
+          name: spiffe-helper-config-backend  # Updated ConfigMap name
+      - name: spiffe-certs
+        emptyDir:
+          medium: Memory  # Use memory-backed storage
+      # Pod scheduling preferences
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: app
+                operator: In
+                values:
+                - backend
+            topologyKey: "kubernetes.io/hostname"  # Spread pods across nodes
+---
+# Backend service definition
+apiVersion: v1
+kind: Service
+metadata:
+  name: backend
+  namespace: demo
+spec:
+  selector:
+    app: backend
+  ports:
+  - port: 8443
+    targetPort: 8443
+    name: https  # Main HTTPS port
+  - port: 8080
+    targetPort: 8080
+    name: metrics  # Metrics endpoint port
+  type: ClusterIP
+---
+# Pod Disruption Budget for high availability
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: backend-pdb
+  namespace: demo
+spec:
+  minAvailable: 1  # Ensure at least one pod is always available
+  selector:
+    matchLabels:
+      app: backend
+---
+# Horizontal Pod Autoscaler configuration
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: backend-hpa
+  namespace: demo
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: backend
+  minReplicas: 2  # Minimum number of replicas
+  maxReplicas: 10  # Maximum number of replicas
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70  # Scale up at 70% CPU utilization
+  - type: Resource
+    resource:
+      name: memory
+      target:
+        type: Utilization
+        averageUtilization: 80  # Scale up at 80% memory utilization

@@ -1,0 +1,93 @@
+# SPIFFE helper configuration for backend service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spiffe-helper-config-backend
+  namespace: demo
+data:
+  # Configuration for backend service
+  helper.conf: |
+    # Agent socket path for workload API
+    agent_socket_path = "/run/spiffe/workload/workload_api.sock"
+    # Certificate directory for storing fetched certificates
+    cert_dir = "/tmp"
+    # Add backend service certificate
+    add_svid {
+      # SPIFFE ID for the backend service
+      spiffe_id = "spiffe://example.org/ns/demo/sa/backend"
+      # Path to store the certificate
+      path = "/tmp/backend.crt"
+      # Path to store the private key
+      key_path = "/tmp/backend.key"
+      # Certificate renewal settings
+      renewal_interval = "30s"
+      # Error handling
+      retry_interval = "5s"
+      max_retries = 3
+    }
+    # Add trust bundle
+    add_bundle {
+      # Trust domain
+      trust_domain = "example.org"
+      # Path to store the trust bundle
+      path = "/tmp/trust_bundle.crt"
+      # Trust bundle refresh settings
+      refresh_interval = "1h"
+    }
+    # Global settings
+    log_level = "info"
+    log_format = "json"
+    # Certificate rotation settings
+    cert_rotation {
+      # Rotate certificates when they're 80% through their lifetime
+      rotation_threshold = "80%"
+      # Minimum time between rotations
+      min_rotation_interval = "5m"
+    }
+---
+# SPIFFE helper configuration for frontend service
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spiffe-helper-config-frontend
+  namespace: demo
+data:
+  # Configuration for frontend service
+  helper.conf: |
+    # Agent socket path for workload API
+    agent_socket_path = "/run/spiffe/workload/workload_api.sock"
+    # Certificate directory for storing fetched certificates
+    cert_dir = "/tmp"
+    # Add frontend service certificate
+    add_svid {
+      # SPIFFE ID for the frontend service
+      spiffe_id = "spiffe://example.org/ns/demo/sa/frontend"
+      # Path to store the certificate
+      path = "/tmp/frontend.crt"
+      # Path to store the private key
+      key_path = "/tmp/frontend.key"
+      # Certificate renewal settings
+      renewal_interval = "30s"
+      # Error handling
+      retry_interval = "5s"
+      max_retries = 3
+    }
+    # Add trust bundle
+    add_bundle {
+      # Trust domain
+      trust_domain = "example.org"
+      # Path to store the trust bundle
+      path = "/tmp/trust_bundle.crt"
+      # Trust bundle refresh settings
+      refresh_interval = "1h"
+    }
+    # Global settings
+    log_level = "info"
+    log_format = "json"
+    # Certificate rotation settings
+    cert_rotation {
+      # Rotate certificates when they're 80% through their lifetime
+      rotation_threshold = "80%"
+      # Minimum time between rotations
+      min_rotation_interval = "5m"
+    } 
