@@ -30,7 +30,7 @@ This repository provides a complete example of setting up secure mutual TLS (mTL
 
 ---
 
-## 🚀 Getting Started
+## Getting Started
 
 ### Step 1: Install Everything
 
@@ -106,15 +106,16 @@ This is useful when:
 
 ---
 
-## 📘 Additional Notes
+## Additional Notes
 
-- All SPIRE entries assume a trust domain of `spiffe://example.org`
-- The SPIRE Agent must be running and accessible via `/run/spire/sockets/agent.sock`
-- You can extend this demo to include AWS federation or OIDC discovery if desired.
+- This is an EXAMPLE, it will not execuite without setting up the surrounding environment.
+- 1. To run these you must include your own domain name. Currently, all SPIRE entries assume a trust domain of `spiffe://example.org`
+- 2. The SPIRE Agent must be running and accessible via `/run/spire/sockets/agent.sock`
+- 3. You can extend this demo to include AWS federation or OIDC discovery if desired.
 
 ---
 
 For more about SPIFFE, SPIRE, and Workload Identity:
 - [SPIFFE Documentation](https://spiffe.io/docs/latest/)
 - [SPIRE Docs](https://spiffe.io/spire/)
-- [Confidential Computing Consortium](https://confidentialcomputing.io/)
+
