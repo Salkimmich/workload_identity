@@ -1,0 +1,159 @@
+# SPIRE Agent Configuration
+# This file defines the configuration for the SPIRE agent, which runs on each node
+# and is responsible for attesting the node's identity and providing workload identity
+# to pods running on that node.
+#
+# The SPIRE agent is responsible for:
+# 1. Attesting the node's identity to the SPIRE server
+# 2. Providing the SPIFFE Workload API to workloads
+# 3. Managing workload attestation
+# 4. Handling SVID rotation and caching
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-agent
+  namespace: spire
+data:
+  # Agent configuration file
+  agent.conf: |
+    # Agent configuration
+    agent {
+      # Data directory for agent
+      # Stores agent-specific data including:
+      # - Cached SVIDs
+      # - Workload API socket
+      # - Agent-specific configuration
+      data_dir = "/run/spire/data"
+      
+      # Log level for the agent
+      # Options: debug, info, warn, error
+      # debug: Detailed debugging information
+      # info: General operational information
+      # warn: Warning messages
+      # error: Error messages only
+      log_level = "info"
+      
+      # Log format
+      # Options: text, json
+      # text: Human-readable format
+      # json: Machine-readable format for log aggregation
+      log_format = "text"
+      
+      # Server address
+      # Address of the SPIRE server to connect to
+      # This should be the Kubernetes service name of the SPIRE server
+      server_address = "spire-server"
+      
+      # Server port
+      # Port of the SPIRE server API
+      # Must match the server's bind_port
+      server_port = "8081"
+      
+      # Socket path for the agent API
+      # Used by workloads to request identity documents
+      # This Unix domain socket enables secure local communication
+      socket_path = "/run/spire/sockets/agent.sock"
+      
+      # Trust domain
+      # Must match the server's trust domain
+      # The trust domain is the root of trust for all identities
+      # Format: <organization>.example.org
+      trust_domain = "example.org"
+      
+      # Workload API socket directory
+      # Directory where the workload API socket is created
+      # This directory must be accessible to workloads
+      # Typically mounted as a volume in workload pods
+      workload_api_socket_dir = "/run/spire/sockets"
+    }
+
+    # Plugin configurations
+    plugins {
+      # Node attestation plugin
+      # Used to attest the node's identity to the server
+      # k8s_psat: Kubernetes Projected Service Account Token
+      # This plugin uses the node's service account token to prove its identity
+      NodeAttestor "k8s_psat" {
+        plugin_data {
+          # Cluster name
+          # Must match the server's configuration
+          # Used to identify the source of node attestation
+          cluster = "demo-cluster"
+          
+          # Token path
+          # Path to the projected service account token
+          # This token is used to authenticate the node to the SPIRE server
+          token_path = "/var/run/secrets/tokens/spire-agent"
+        }
+      }
+
+      # Key manager plugin
+      # Manages the cryptographic keys used by the agent
+      # memory: In-memory key storage (not persistent)
+      # Note: For production, use a persistent key manager like disk or aws_kms
+      KeyManager "memory" {
+        plugin_data {
+          # Key storage configuration
+          # In-memory storage is used for demonstration
+          # Production should use a persistent storage
+          # Options include:
+          # - disk: Local file system storage
+          # - aws_kms: AWS Key Management Service
+          # - gcp_kms: Google Cloud KMS
+        }
+      }
+
+      # Workload attestor plugin
+      # Used to attest the identity of workloads
+      # k8s: Kubernetes workload attestation
+      # This plugin identifies workloads based on their Kubernetes metadata
+      WorkloadAttestor "k8s" {
+        plugin_data {
+          # Kubelet socket path
+          # Used to communicate with the kubelet
+          # The kubelet provides information about running pods
+          kubelet_socket_path = "/var/run/kubernetes/kubernetes.sock"
+        }
+      }
+    }
+
+    # Health check configuration
+    # Enables health monitoring of the SPIRE agent
+    health_checks {
+      # Listener configuration
+      # Enables HTTP health check endpoints
+      listener_enabled = true
+      
+      # Bind address for health checks
+      # 0.0.0.0 means listen on all available network interfaces
+      bind_address = "0.0.0.0"
+      
+      # Port for health check endpoints
+      # Standard health check port
+      bind_port = "8080"
+      
+      # Liveness probe endpoint
+      # Returns 200 if agent is running
+      live_path = "/live"
+      
+      # Readiness probe endpoint
+      # Returns 200 if agent is ready to handle requests
+      ready_path = "/ready"
+    }
+
+    # Telemetry configuration
+    # Enables monitoring and metrics collection
+    telemetry {
+      # Prometheus metrics endpoint
+      # Exposes metrics for monitoring SPIRE agent health and performance
+      Prometheus {
+        # Bind address for metrics
+        # 0.0.0.0 means listen on all available network interfaces
+        bind_address = "0.0.0.0"
+        
+        # Port for Prometheus metrics
+        # Default Prometheus port is 9090, using 8088 to avoid conflicts
+        bind_port = "8088"
+      }
+    } 

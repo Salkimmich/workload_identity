@@ -1,0 +1,56 @@
+# Example Service Configuration
+# This file shows how to configure a service to use workload identity
+# Note: This is a simplified example. Production services need additional configuration.
+
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: example-service
+  namespace: default
+spec:
+  replicas: 3
+  selector:
+    matchLabels:
+      app: example-service
+  template:
+    metadata:
+      labels:
+        app: example-service
+    spec:
+      # Service account with workload identity
+      serviceAccountName: example-service-sa
+      
+      containers:
+      - name: example-service
+        image: example-service:latest
+        env:
+        # Workload identity token path
+        - name: WORKLOAD_IDENTITY_TOKEN_PATH
+          value: "/var/run/secrets/tokens/workload-identity"
+        
+        # Service configuration
+        - name: SERVICE_NAME
+          value: "example-service"
+        - name: LOG_LEVEL
+          value: "info"
+        
+        # Mount the workload identity token
+        volumeMounts:
+        - name: workload-identity-token
+          mountPath: "/var/run/secrets/tokens"
+          readOnly: true
+      
+      volumes:
+      - name: workload-identity-token
+        projected:
+          sources:
+          - serviceAccountToken:
+              path: workload-identity
+              expirationSeconds: 3600
+
+# Note: This is a basic example. Production services should:
+# - Use specific resource limits
+# - Include health checks
+# - Configure security contexts
+# - Use network policies
+# - Include proper logging configuration 

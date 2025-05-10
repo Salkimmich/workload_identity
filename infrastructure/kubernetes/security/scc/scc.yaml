@@ -1,0 +1,111 @@
+# Security Context Constraints (SCC) Configuration
+# This file defines OpenShift-specific security policies
+# SCCs control what security contexts can be requested by pods
+
+# Restricted Security Context Constraints
+# This is the default restrictive policy for most workloads
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: restricted-scc
+# Disable privileged containers
+# Prevents containers from running with elevated privileges
+allowPrivilegedContainer: false
+
+# Disable privilege escalation
+# Prevents containers from gaining additional privileges
+allowPrivilegeEscalation: false
+
+# Required capabilities to drop
+# These Linux capabilities are always dropped from containers
+requiredDropCapabilities:
+  - KILL    # Prevent sending signals to other processes
+  - MKNOD   # Prevent creating device nodes
+  - SETUID  # Prevent changing user IDs
+  - SETGID  # Prevent changing group IDs
+
+# User ID restrictions
+# Forces containers to run with UIDs in the specified range
+runAsUser:
+  type: MustRunAsRange
+  uidRangeMin: 1000    # Minimum allowed UID
+  uidRangeMax: 65535   # Maximum allowed UID
+
+# SELinux context restrictions
+# Forces containers to run with specific SELinux context
+seLinuxContext:
+  type: MustRunAs
+  seLinuxOptions:
+    level: "s0:c123,c456"  # Specific SELinux level
+
+# File system group restrictions
+# Controls the group ownership of volumes
+fsGroup:
+  type: MustRunAs
+  ranges:
+    - min: 1
+      max: 65535
+
+# Supplemental groups restrictions
+# Controls additional groups that can be assigned to containers
+supplementalGroups:
+  type: MustRunAs
+  ranges:
+    - min: 1
+      max: 65535
+
+# Allowed volume types
+# Restricts the types of volumes that can be mounted
+volumes:
+  - 'configMap'           # For configuration data
+  - 'emptyDir'           # For temporary storage
+  - 'projected'          # For projected volumes
+  - 'secret'             # For sensitive data
+  - 'downwardAPI'        # For downward API
+  - 'persistentVolumeClaim'  # For persistent storage
+
+---
+# Privileged Security Context Constraints
+# This policy allows elevated privileges for special cases
+# Use with extreme caution and only for workloads that absolutely require it
+apiVersion: security.openshift.io/v1
+kind: SecurityContextConstraints
+metadata:
+  name: privileged-scc
+# Allow privileged containers
+# Gives containers access to host resources
+allowPrivilegedContainer: true
+
+# Allow privilege escalation
+# Allows containers to gain additional privileges
+allowPrivilegeEscalation: true
+
+# Allow all Linux capabilities
+# Gives containers access to all Linux capabilities
+allowedCapabilities:
+  - '*'
+
+# No user ID restrictions
+# Allows containers to run as any user
+runAsUser:
+  type: RunAsAny
+
+# No SELinux restrictions
+# Allows any SELinux context
+seLinuxContext:
+  type: RunAsAny
+
+# No file system group restrictions
+# Allows any group IDs for the file system
+fsGroup:
+  type: RunAsAny
+
+# No supplemental group restrictions
+# Allows any group IDs
+supplementalGroups:
+  type: RunAsAny
+
+# Allow all volume types
+# No restrictions on volume types
+volumes:
+  - '*' 

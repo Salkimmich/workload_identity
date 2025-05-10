@@ -1,0 +1,184 @@
+# Network Policies Configuration
+# This file defines network isolation rules for different services in the demo namespace
+# Each policy controls both ingress (incoming) and egress (outgoing) traffic
+
+# Frontend Service Network Policy
+# Controls traffic to and from the frontend service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-network-policy
+  namespace: demo
+spec:
+  # Select pods with the frontend label
+  podSelector:
+    matchLabels:
+      app: frontend
+  # Apply both ingress and egress rules
+  policyTypes:
+    - Ingress
+    - Egress
+  # Ingress rules define who can connect to the frontend
+  ingress:
+    # Allow traffic from ingress-nginx namespace
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: ingress-nginx
+        ports:
+          - protocol: TCP
+            port: 80
+    # Allow health check probes from kube-system
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        ports:
+          - protocol: TCP
+            port: 8080  # Health check port
+  # Egress rules define where the frontend can connect to
+  egress:
+    # Allow connections to backend service
+    - to:
+        - podSelector:
+            matchLabels:
+              app: backend
+        ports:
+          - protocol: TCP
+            port: 80
+    # Allow DNS queries to kube-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        ports:
+          - protocol: TCP
+            port: 53
+          - protocol: UDP
+            port: 53
+    # Allow metrics scraping by Prometheus
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        ports:
+          - protocol: TCP
+            port: 9090  # Prometheus metrics port
+---
+# Backend Service Network Policy
+# Controls traffic to and from the backend service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: backend-network-policy
+  namespace: demo
+spec:
+  # Select pods with the backend label
+  podSelector:
+    matchLabels:
+      app: backend
+  # Apply both ingress and egress rules
+  policyTypes:
+    - Ingress
+    - Egress
+  # Ingress rules define who can connect to the backend
+  ingress:
+    # Allow traffic from frontend service
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+        ports:
+          - protocol: TCP
+            port: 80
+    # Allow health check probes from kube-system
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        ports:
+          - protocol: TCP
+            port: 8080  # Health check port
+  # Egress rules define where the backend can connect to
+  egress:
+    # Allow connections to API service
+    - to:
+        - podSelector:
+            matchLabels:
+              app: api
+        ports:
+          - protocol: TCP
+            port: 80
+    # Allow DNS queries to kube-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        ports:
+          - protocol: TCP
+            port: 53
+          - protocol: UDP
+            port: 53
+    # Allow metrics scraping by Prometheus
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        ports:
+          - protocol: TCP
+            port: 9090  # Prometheus metrics port
+---
+# API Service Network Policy
+# Controls traffic to and from the API service
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: api-network-policy
+  namespace: demo
+spec:
+  # Select pods with the api label
+  podSelector:
+    matchLabels:
+      app: api
+  # Apply both ingress and egress rules
+  policyTypes:
+    - Ingress
+    - Egress
+  # Ingress rules define who can connect to the API
+  ingress:
+    # Allow traffic from backend service
+    - from:
+        - podSelector:
+            matchLabels:
+              app: backend
+        ports:
+          - protocol: TCP
+            port: 80
+    # Allow health check probes from kube-system
+    - from:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        ports:
+          - protocol: TCP
+            port: 8080  # Health check port
+  # Egress rules define where the API can connect to
+  egress:
+    # Allow DNS queries to kube-system
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: kube-system
+        ports:
+          - protocol: TCP
+            port: 53
+          - protocol: UDP
+            port: 53
+    # Allow metrics scraping by Prometheus
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              name: monitoring
+        ports:
+          - protocol: TCP
+            port: 9090  # Prometheus metrics port 

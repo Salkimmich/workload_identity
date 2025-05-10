@@ -52,22 +52,63 @@ Built with enterprise-grade security and reliability in mind, this system is des
 ## Key Features
 
 ### Identity Management
-- Automatic workload identity provisioning
-- Certificate-based authentication
-- Role-based access control
-- Identity federation support
+The system provides robust identity management capabilities through a distributed architecture that ensures secure and scalable workload identity provisioning. Each workload receives a unique SPIFFE ID that is cryptographically verifiable and tied to its runtime environment.
+
+```mermaid
+graph TD
+    A[Workload] -->|Attestation| B[SPIRE Agent]
+    B -->|Identity Request| C[SPIRE Server]
+    C -->|Validate| D[Node Attestation]
+    C -->|Issue| E[SPIFFE ID]
+    E -->|Bind| F[Workload Identity]
+    F -->|Use| G[Service Communication]
+```
+
+Key components:
+- Automatic identity provisioning based on workload attributes
+- Certificate-based authentication using X.509 certificates
+- Role-based access control with fine-grained permissions
+- Support for multiple identity providers through federation
 
 ### Security
-- mTLS communication
-- Zero-trust model implementation
-- Secure key management
-- Hardware security module support
+The security architecture implements a zero-trust model where every service interaction requires mutual authentication and authorization. The system uses mTLS for secure communication and implements robust key management practices.
+
+```mermaid
+graph LR
+    A[Service A] -->|mTLS| B[Service B]
+    A -->|Verify| C[Certificate]
+    B -->|Verify| D[Certificate]
+    C -->|Validate| E[Trust Chain]
+    D -->|Validate| E
+    E -->|Check| F[Policy Engine]
+```
+
+Security features:
+- Mutual TLS (mTLS) for all service-to-service communication
+- Zero-trust model implementation with continuous verification
+- Secure key management with automatic rotation
+- Hardware security module (HSM) support for key storage
 
 ### Integration
-- Kubernetes native integration
-- Service mesh support (Istio, Linkerd)
-- Cloud provider integration
-- CI/CD pipeline integration
+The system provides seamless integration with modern cloud-native platforms and tools, enabling organizations to implement workload identity across their entire infrastructure stack.
+
+```mermaid
+graph TD
+    A[Workload Identity] -->|Integrate| B[Kubernetes]
+    A -->|Connect| C[Service Mesh]
+    A -->|Federate| D[Cloud Providers]
+    A -->|Automate| E[CI/CD]
+    B -->|Use| F[Service Accounts]
+    C -->|Use| G[mTLS]
+    D -->|Use| H[Cloud IAM]
+    E -->|Use| I[Pipeline Security]
+```
+
+Integration capabilities:
+- Native Kubernetes integration with service accounts
+- Service mesh support for Istio and Linkerd
+- Cloud provider integration (AWS, Azure, GCP)
+- CI/CD pipeline integration for automated security
 
 ## Getting Started
 
@@ -129,27 +170,9 @@ Comprehensive monitoring capabilities:
 
 See the [Monitoring Guide](docs/monitoring_guide.md) for setup and configuration.
 
-## Support
-
-### Community Support
-- GitHub Issues
-- GitHub Discussions
-- Stack Overflow
-- Community Forums
-
-### Enterprise Support
-- Documentation
-- Knowledge Base
-- Security Updates
-- Training Resources
-
-## Contributing
-
-We welcome contributions! Please see our [Contributing Guide](CONTRIBUTING.md) for details.
-
 ## License
 
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENSE) file for details.
 
 ## Acknowledgments
 

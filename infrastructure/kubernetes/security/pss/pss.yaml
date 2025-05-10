@@ -1,0 +1,150 @@
+# Pod Security Standards (PSS) configuration
+# This file defines two levels of security policies:
+# 1. baseline-pss: A restrictive policy for most workloads
+# 2. privileged-pss: A permissive policy for special cases
+
+# Baseline Pod Security Policy
+# This policy enforces strict security controls for regular workloads
+apiVersion: policy/v1
+kind: PodSecurityPolicy
+metadata:
+  name: baseline-pss
+  # Pod Security Admission (PSA) labels
+  # These labels are used by the PSA controller to enforce security standards
+  labels:
+    pod-security.kubernetes.io/enforce: baseline  # Enforce baseline restrictions
+    pod-security.kubernetes.io/audit: baseline    # Audit baseline violations
+    pod-security.kubernetes.io/warn: baseline     # Warn about baseline violations
+spec:
+  # Disable privileged containers
+  # Privileged containers have access to host resources
+  privileged: false
+  
+  # Disable privilege escalation
+  # Prevents containers from gaining additional privileges
+  allowPrivilegeEscalation: false
+  
+  # Drop all Linux capabilities
+  # This is the most restrictive setting
+  requiredDropCapabilities:
+    - ALL
+  
+  # Allowed volume types
+  # Restricts the types of volumes that can be mounted
+  volumes:
+    - 'configMap'           # For configuration data
+    - 'emptyDir'           # For temporary storage
+    - 'projected'          # For projected volumes
+    - 'secret'             # For sensitive data
+    - 'downwardAPI'        # For downward API
+    - 'persistentVolumeClaim'  # For persistent storage
+  
+  # Disable host network access
+  # Prevents containers from using the host's network
+  hostNetwork: false
+  
+  # Disable host IPC namespace
+  # Prevents containers from using the host's IPC namespace
+  hostIPC: false
+  
+  # Disable host PID namespace
+  # Prevents containers from seeing host processes
+  hostPID: false
+  
+  # User ID restrictions
+  # Forces containers to run as non-root
+  runAsUser:
+    rule: 'MustRunAsNonRoot'
+  
+  # SELinux context
+  # Allows any SELinux context
+  seLinux:
+    rule: 'RunAsAny'
+  
+  # Supplemental groups
+  # Restricts the range of group IDs that can be used
+  supplementalGroups:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  
+  # File system group
+  # Restricts the range of group IDs for the file system
+  fsGroup:
+    rule: 'MustRunAs'
+    ranges:
+      - min: 1
+        max: 65535
+  
+  # Read-only root filesystem
+  # Forces containers to use a read-only root filesystem
+  readOnlyRootFilesystem: true
+
+---
+# Privileged Pod Security Policy
+# This policy allows elevated privileges for special cases
+# Use with extreme caution and only for workloads that absolutely require it
+apiVersion: policy/v1
+kind: PodSecurityPolicy
+metadata:
+  name: privileged-pss
+  # PSA labels for privileged mode
+  labels:
+    pod-security.kubernetes.io/enforce: privileged  # Allow privileged operations
+    pod-security.kubernetes.io/audit: privileged    # Audit privileged operations
+    pod-security.kubernetes.io/warn: privileged     # Warn about privileged operations
+spec:
+  # Allow privileged containers
+  # Gives containers access to host resources
+  privileged: true
+  
+  # Allow privilege escalation
+  # Allows containers to gain additional privileges
+  allowPrivilegeEscalation: true
+  
+  # Allow all Linux capabilities
+  # Gives containers access to all Linux capabilities
+  allowedCapabilities:
+    - '*'
+  
+  # Allow all volume types
+  # No restrictions on volume types
+  volumes:
+    - '*'
+  
+  # Allow host network access
+  # Allows containers to use the host's network
+  hostNetwork: true
+  
+  # Allow host IPC namespace
+  # Allows containers to use the host's IPC namespace
+  hostIPC: true
+  
+  # Allow host PID namespace
+  # Allows containers to see host processes
+  hostPID: true
+  
+  # No user ID restrictions
+  # Allows containers to run as any user
+  runAsUser:
+    rule: 'RunAsAny'
+  
+  # No SELinux restrictions
+  # Allows any SELinux context
+  seLinux:
+    rule: 'RunAsAny'
+  
+  # No supplemental group restrictions
+  # Allows any group IDs
+  supplementalGroups:
+    rule: 'RunAsAny'
+  
+  # No file system group restrictions
+  # Allows any group IDs for the file system
+  fsGroup:
+    rule: 'RunAsAny'
+  
+  # Allow writable root filesystem
+  # Allows containers to write to their root filesystem
+  readOnlyRootFilesystem: false 

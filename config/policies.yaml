@@ -1,0 +1,44 @@
+# Workload Identity Policies
+# This file defines the access control policies for workloads
+# Note: This is a basic policy file. Production environments should have more restrictive policies.
+
+apiVersion: security.workload/v1
+kind: WorkloadPolicies
+
+# Service-to-service communication policies
+servicePolicies:
+  - name: "internal-service-access"
+    description: "Allow internal service communication"
+    rules:
+      - action: "allow"
+        source: "service:*"
+        destination: "service:internal-api"
+        methods: ["GET", "POST"]
+        paths: ["/api/v1/*"]
+
+# Resource access policies
+resourcePolicies:
+  - name: "database-access"
+    description: "Database access policy"
+    rules:
+      - action: "allow"
+        workload: "service:database-client"
+        resource: "database:main"
+        operations: ["read", "write"]
+
+# Network policies
+networkPolicies:
+  - name: "internal-network"
+    description: "Internal network access"
+    rules:
+      - action: "allow"
+        source: "network:internal"
+        destination: "service:*"
+        ports: [80, 443]
+
+# Note: This is a simplified policy file. In production:
+# - Add more specific rules
+# - Include deny rules
+# - Add time-based restrictions
+# - Include IP-based restrictions
+# - Add more granular permissions 
