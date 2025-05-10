@@ -1,5 +1,71 @@
 # Authentication Middleware Example with SPIFFE/SPIRE Integration
 
+## Architecture Overview
+
+### Component Architecture
+```mermaid
+graph TD
+    Client[Client] --> |HTTP/HTTPS| API[API Gateway]
+    API --> |mTLS| Service[Service]
+    Service --> |SPIFFE| SPIRE[SPIRE Agent]
+    SPIRE --> |Trust Bundle| SPIRE_Server[SPIRE Server]
+    Service --> |OIDC| Auth[Auth Provider]
+    Service --> |Rate Limit| Redis[Redis]
+    Service --> |API Key| Vault[Vault]
+```
+
+### Authentication Flow
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant S as Service
+    participant SP as SPIRE
+    participant A as Auth Provider
+    
+    C->>S: Request
+    alt mTLS Auth
+        S->>SP: Validate SVID
+        SP-->>S: Valid
+    else API Key Auth
+        S->>S: Validate API Key
+    else OIDC Auth
+        S->>A: Validate Token
+        A-->>S: Valid
+    end
+    S-->>C: Response
+```
+
+### Security Architecture
+```mermaid
+graph TD
+    subgraph "Security Layers"
+        MTLS[mTLS Layer]
+        API[API Key Layer]
+        OIDC[OIDC Layer]
+        RATE[Rate Limit Layer]
+    end
+    
+    subgraph "Identity Management"
+        SPIFFE[SPIFFE/SPIRE]
+        TRUST[Trust Bundle]
+        SVID[SVID Management]
+    end
+    
+    subgraph "Access Control"
+        RBAC[RBAC]
+        POLICIES[Security Policies]
+        AUDIT[Audit Logging]
+    end
+    
+    MTLS --> SPIFFE
+    API --> RBAC
+    OIDC --> RBAC
+    RATE --> POLICIES
+    SPIFFE --> TRUST
+    TRUST --> SVID
+    RBAC --> AUDIT
+```
+
 This example demonstrates how to use authentication and rate limiting middlewares in a Go HTTP server with SPIFFE/SPIRE integration for workload identity and mTLS.
 
 ## Features
@@ -483,4 +549,234 @@ The server will start on port 8080 with mTLS enabled.
    - Verify configuration
    - Check network connectivity
    - Verify permissions
-   - Check resource availability 
+   - Check resource availability
+
+## Implementation Details
+
+### Middleware Stack
+```go
+// Middleware chain configuration
+middleware := []Middleware{
+    NewSPIFFEMiddleware(spiffeConfig),
+    NewRateLimitMiddleware(rateLimitConfig),
+    NewAuthMiddleware(authConfig),
+    NewLoggingMiddleware(logConfig),
+    NewMetricsMiddleware(metricsConfig),
+}
+```
+
+### SPIFFE Integration
+```go
+// SPIFFE middleware implementation
+type SPIFFEMiddleware struct {
+    config *spiffe.Config
+    client *spiffe.Client
+}
+
+func (m *SPIFFEMiddleware) Handle(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Validate SVID
+        svid, err := m.client.GetSVID()
+        if err != nil {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+        
+        // Add SPIFFE ID to context
+        ctx := context.WithValue(r.Context(), "spiffe_id", svid.ID)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+```
+
+### Rate Limiting Implementation
+```go
+// Rate limiting middleware implementation
+type RateLimitMiddleware struct {
+    limiter *rate.Limiter
+    store   *redis.Client
+}
+
+func (m *RateLimitMiddleware) Handle(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Get client identifier
+        clientID := getClientID(r)
+        
+        // Check rate limit
+        if !m.limiter.Allow(clientID) {
+            http.Error(w, "Rate limit exceeded", http.StatusTooManyRequests)
+            return
+        }
+        
+        next.ServeHTTP(w, r)
+    })
+}
+```
+
+### Authentication Implementation
+```go
+// Authentication middleware implementation
+type AuthMiddleware struct {
+    config *auth.Config
+    provider *oidc.Provider
+}
+
+func (m *AuthMiddleware) Handle(next http.Handler) http.Handler {
+    return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+        // Validate authentication
+        token, err := m.validateAuth(r)
+        if err != nil {
+            http.Error(w, "Unauthorized", http.StatusUnauthorized)
+            return
+        }
+        
+        // Add claims to context
+        ctx := context.WithValue(r.Context(), "claims", token.Claims)
+        next.ServeHTTP(w, r.WithContext(ctx))
+    })
+}
+```
+
+## Integration Examples
+
+### Service Mesh Integration
+```yaml
+# Istio VirtualService configuration
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: service-vs
+spec:
+  hosts:
+  - service
+  http:
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: service
+        port:
+          number: 8443
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+```
+
+### Monitoring Integration
+```yaml
+# Prometheus metrics configuration
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-monitor
+spec:
+  selector:
+    matchLabels:
+      app: service
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+```
+
+### Logging Integration
+```yaml
+# Fluentd configuration
+apiVersion: logging.banzaicloud.io/v1beta1
+kind: Flow
+metadata:
+  name: service-flow
+spec:
+  filters:
+  - parser:
+      remove_key_name_field: true
+      parse:
+        type: json
+  match:
+  - select:
+      labels:
+        app: service
+  localOutputRefs:
+  - service-output
+```
+
+## Performance Tuning
+
+### Rate Limiting Configuration
+```yaml
+rateLimitConfig:
+  requestsPerSecond: 100
+  burst: 50
+  perClient: true
+  storage:
+    type: redis
+    config:
+      address: redis:6379
+      password: ${REDIS_PASSWORD}
+      db: 0
+```
+
+### Caching Configuration
+```yaml
+cacheConfig:
+  type: redis
+  config:
+    address: redis:6379
+    password: ${REDIS_PASSWORD}
+    db: 1
+    ttl: 3600
+```
+
+### Metrics Configuration
+```yaml
+metricsConfig:
+  enabled: true
+  path: /metrics
+  port: 9090
+  labels:
+    app: service
+    environment: production
+```
+
+## Security Hardening
+
+### TLS Configuration
+```yaml
+tlsConfig:
+  minVersion: TLS1.3
+  cipherSuites:
+    - TLS_AES_128_GCM_SHA256
+    - TLS_AES_256_GCM_SHA384
+  curvePreferences:
+    - CurveP521
+    - CurveP384
+  preferServerCipherSuites: true
+```
+
+### API Key Security
+```yaml
+apiKeyConfig:
+  algorithm: argon2id
+  params:
+    memory: 65536
+    iterations: 3
+    parallelism: 4
+  storage:
+    type: vault
+    path: secret/api-keys
+```
+
+### OIDC Security
+```yaml
+oidcConfig:
+  issuer: https://auth.example.com
+  clientID: ${OIDC_CLIENT_ID}
+  clientSecret: ${OIDC_CLIENT_SECRET}
+  redirectURL: https://service.example.com/callback
+  scopes:
+    - openid
+    - profile
+    - email
+  maxAge: 3600
+``` 

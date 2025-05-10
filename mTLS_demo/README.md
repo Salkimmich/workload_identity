@@ -5,6 +5,107 @@ This repository demonstrates a secure microservices architecture using SPIFFE/SP
 
 ## Architecture
 
+### System Architecture
+```mermaid
+graph TD
+    subgraph "Frontend Layer"
+        FE[Frontend Service]
+        FE_UI[User Interface]
+        FE_AUTH[Auth Client]
+    end
+    
+    subgraph "Backend Layer"
+        BE[Backend Service]
+        BE_API[API Gateway]
+        BE_AUTH[Auth Service]
+    end
+    
+    subgraph "API Layer"
+        API[API Service]
+        API_DB[Database]
+        API_CACHE[Cache]
+    end
+    
+    subgraph "Security Layer"
+        SPIRE[SPIRE Server]
+        AGENT[SPIRE Agent]
+        MESH[Service Mesh]
+    end
+    
+    FE --> |mTLS| BE
+    BE --> |mTLS| API
+    FE_AUTH --> |OIDC| BE_AUTH
+    BE_AUTH --> |JWT| API
+    SPIRE --> |Trust Bundle| AGENT
+    AGENT --> |SVID| FE
+    AGENT --> |SVID| BE
+    AGENT --> |SVID| API
+    MESH --> |Traffic Control| FE
+    MESH --> |Traffic Control| BE
+    MESH --> |Traffic Control| API
+```
+
+### Security Architecture
+```mermaid
+graph TD
+    subgraph "Identity Management"
+        SPIFFE[SPIFFE/SPIRE]
+        SVID[SVID Management]
+        TRUST[Trust Bundle]
+    end
+    
+    subgraph "Authentication"
+        MTLS[mTLS]
+        OIDC[OIDC]
+        JWT[JWT]
+    end
+    
+    subgraph "Authorization"
+        RBAC[RBAC]
+        POLICIES[Security Policies]
+        AUDIT[Audit Logging]
+    end
+    
+    subgraph "Network Security"
+        MESH[Service Mesh]
+        NP[Network Policies]
+        DNS[DNS Security]
+    end
+    
+    SPIFFE --> SVID
+    SVID --> MTLS
+    MTLS --> RBAC
+    OIDC --> JWT
+    JWT --> RBAC
+    RBAC --> POLICIES
+    POLICIES --> AUDIT
+    MESH --> NP
+    NP --> DNS
+```
+
+### Service Communication Flow
+```mermaid
+sequenceDiagram
+    participant C as Client
+    participant F as Frontend
+    participant B as Backend
+    participant A as API
+    participant S as SPIRE
+    
+    C->>F: HTTP Request
+    F->>S: Get SVID
+    S-->>F: SVID
+    F->>B: mTLS Request
+    B->>S: Validate SVID
+    S-->>B: Valid
+    B->>A: mTLS Request
+    A->>S: Validate SVID
+    S-->>A: Valid
+    A-->>B: Response
+    B-->>F: Response
+    F-->>C: HTTP Response
+```
+
 ### Components
 - **Frontend Service**: Web application that communicates with the backend
   - User interface and client-side logic
@@ -254,4 +355,273 @@ kubectl describe networkpolicy -n demo
 Please read [CONTRIBUTING.md](CONTRIBUTING.md) for details on our code of conduct and the process for submitting pull requests.
 
 ## License
-This project is licensed under the Apache License 2.0 - see the [LICENSE](../LICENSE) file for details. 
+This project is licensed under the Apache License 2.0 - see the [LICENSE](../LICENSE) file for details.
+
+## Implementation Details
+
+### Frontend Service
+```yaml
+# Frontend deployment configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: frontend
+spec:
+  template:
+    spec:
+      containers:
+      - name: frontend
+        image: frontend:latest
+        ports:
+        - containerPort: 8080
+        env:
+        - name: BACKEND_URL
+          value: https://backend:8443
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: /run/spiffe/workload/workload_api.sock
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /run/spiffe/workload
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+```
+
+### Backend Service
+```yaml
+# Backend deployment configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: backend
+spec:
+  template:
+    spec:
+      containers:
+      - name: backend
+        image: backend:latest
+        ports:
+        - containerPort: 8443
+        env:
+        - name: API_URL
+          value: https://api:8443
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: /run/spiffe/workload/workload_api.sock
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /run/spiffe/workload
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+```
+
+### API Service
+```yaml
+# API service configuration
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: api
+spec:
+  template:
+    spec:
+      containers:
+      - name: api
+        image: api:latest
+        ports:
+        - containerPort: 8443
+        env:
+        - name: DB_URL
+          valueFrom:
+            secretKeyRef:
+              name: db-credentials
+              key: url
+        - name: SPIFFE_ENDPOINT_SOCKET
+          value: /run/spiffe/workload/workload_api.sock
+        volumeMounts:
+        - name: spiffe-workload-api
+          mountPath: /run/spiffe/workload
+        securityContext:
+          runAsNonRoot: true
+          readOnlyRootFilesystem: true
+```
+
+## Security Configuration
+
+### Network Policies
+```yaml
+# Network policy for frontend
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: frontend-policy
+spec:
+  podSelector:
+    matchLabels:
+      app: frontend
+  policyTypes:
+  - Ingress
+  - Egress
+  ingress:
+  - from:
+    - namespaceSelector:
+        matchLabels:
+          name: ingress-nginx
+    ports:
+    - protocol: TCP
+      port: 8080
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: backend
+    ports:
+    - protocol: TCP
+      port: 8443
+```
+
+### Service Mesh Configuration
+```yaml
+# Istio VirtualService for frontend
+apiVersion: networking.istio.io/v1alpha3
+kind: VirtualService
+metadata:
+  name: frontend-vs
+spec:
+  hosts:
+  - frontend
+  http:
+  - match:
+    - uri:
+        prefix: /api
+    route:
+    - destination:
+        host: backend
+        port:
+          number: 8443
+    retries:
+      attempts: 3
+      perTryTimeout: 2s
+```
+
+### Monitoring Configuration
+```yaml
+# Prometheus ServiceMonitor
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: service-monitor
+spec:
+  selector:
+    matchLabels:
+      app: service
+  endpoints:
+  - port: metrics
+    interval: 15s
+    path: /metrics
+```
+
+## Performance Tuning
+
+### Resource Configuration
+```yaml
+# Resource configuration for services
+resources:
+  requests:
+    cpu: 100m
+    memory: 128Mi
+  limits:
+    cpu: 500m
+    memory: 512Mi
+```
+
+### Scaling Configuration
+```yaml
+# HorizontalPodAutoscaler configuration
+apiVersion: autoscaling/v2
+kind: HorizontalPodAutoscaler
+metadata:
+  name: service-hpa
+spec:
+  scaleTargetRef:
+    apiVersion: apps/v1
+    kind: Deployment
+    name: service
+  minReplicas: 2
+  maxReplicas: 10
+  metrics:
+  - type: Resource
+    resource:
+      name: cpu
+      target:
+        type: Utilization
+        averageUtilization: 70
+```
+
+### Caching Configuration
+```yaml
+# Redis cache configuration
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: redis-config
+data:
+  redis.conf: |
+    maxmemory 256mb
+    maxmemory-policy allkeys-lru
+    appendonly yes
+    appendfsync everysec
+```
+
+## Security Hardening
+
+### Pod Security Context
+```yaml
+# Pod security context configuration
+securityContext:
+  runAsNonRoot: true
+  runAsUser: 1000
+  runAsGroup: 3000
+  fsGroup: 2000
+  seccompProfile:
+    type: RuntimeDefault
+  capabilities:
+    drop:
+    - ALL
+```
+
+### Container Security
+```yaml
+# Container security configuration
+securityContext:
+  allowPrivilegeEscalation: false
+  readOnlyRootFilesystem: true
+  runAsNonRoot: true
+  capabilities:
+    drop:
+    - ALL
+  seccompProfile:
+    type: RuntimeDefault
+```
+
+### Network Security
+```yaml
+# Network security configuration
+networkPolicy:
+  ingress:
+    - from:
+        - podSelector:
+            matchLabels:
+              app: frontend
+      ports:
+        - protocol: TCP
+          port: 8443
+  egress:
+    - to:
+        - podSelector:
+            matchLabels:
+              app: api
+      ports:
+        - protocol: TCP
+          port: 8443
+``` 
