@@ -1,0 +1,77 @@
+#!/bin/bash
+
+# Commit-msg Hook
+# This script enforces proper commit message formatting
+
+set -e
+
+# Get the commit message file
+COMMIT_MSG_FILE=$1
+
+# Read the commit message
+COMMIT_MSG=$(cat "$COMMIT_MSG_FILE")
+
+# Check commit message format
+if ! echo "$COMMIT_MSG" | grep -qE '^(feat|fix|docs|style|refactor|test|chore|security)(\([a-z-]+\))?: .+'; then
+    echo "Error: Invalid commit message format."
+    echo "Commit message must follow the format:"
+    echo "  <type>(<scope>): <description>"
+    echo ""
+    echo "Types:"
+    echo "  feat     - New feature"
+    echo "  fix      - Bug fix"
+    echo "  docs     - Documentation changes"
+    echo "  style    - Code style changes"
+    echo "  refactor - Code refactoring"
+    echo "  test     - Test changes"
+    echo "  chore    - Maintenance tasks"
+    echo "  security - Security-related changes"
+    echo ""
+    echo "Example:"
+    echo "  feat(auth): add OIDC authentication"
+    echo "  fix(server): resolve certificate rotation issue"
+    echo ""
+    exit 1
+fi
+
+# Check commit message length
+if [ ${#COMMIT_MSG} -gt 72 ]; then
+    echo "Error: Commit message is too long."
+    echo "First line should be no longer than 72 characters."
+    exit 1
+fi
+
+# Check for proper line breaks
+if echo "$COMMIT_MSG" | grep -q "^$"; then
+    if ! echo "$COMMIT_MSG" | grep -q "^$" -A 1 | grep -q "^[A-Z]"; then
+        echo "Error: Commit message body should start with a capital letter."
+        exit 1
+    fi
+fi
+
+# Check for proper punctuation
+if ! echo "$COMMIT_MSG" | head -n 1 | grep -q ":$"; then
+    echo "Error: Commit message type should end with a colon."
+    exit 1
+fi
+
+# Check for proper spacing
+if echo "$COMMIT_MSG" | grep -q "^[a-z]*(.*):[^ ].*"; then
+    echo "Error: Commit message should have a space after the colon."
+    exit 1
+fi
+
+# Check for proper scope format
+if echo "$COMMIT_MSG" | grep -q "^[a-z]*(.*[A-Z].*):"; then
+    echo "Error: Commit message scope should be lowercase."
+    exit 1
+fi
+
+# Check for proper type format
+if echo "$COMMIT_MSG" | grep -q "^[A-Z]"; then
+    echo "Error: Commit message type should be lowercase."
+    exit 1
+fi
+
+echo "Commit message format is valid."
+exit 0 

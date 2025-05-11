@@ -22,19 +22,19 @@ from cryptography.hazmat.primitives.asymmetric import rsa, padding
 
 # Generate key pair
 private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=2048
+    public_exponent=65537,  # Standard RSA public exponent
+    key_size=2048  # Key size in bits
 )
-public_key = private_key.public_key()
+public_key = private_key.public_key()  # Extract public key from private key
 
 # Encryption
-message = b"Secret message"
+message = b"Secret message"  # Message to encrypt
 ciphertext = public_key.encrypt(
     message,
     padding.OAEP(
-        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-        algorithm=hashes.SHA256(),
-        label=None
+        mgf=padding.MGF1(algorithm=hashes.SHA256()),  # Mask generation function
+        algorithm=hashes.SHA256(),  # Hash algorithm
+        label=None  # Optional label
     )
 )
 
@@ -42,9 +42,9 @@ ciphertext = public_key.encrypt(
 plaintext = private_key.decrypt(
     ciphertext,
     padding.OAEP(
-        mgf=padding.MGF1(algorithm=hashes.SHA256()),
-        algorithm=hashes.SHA256(),
-        label=None
+        mgf=padding.MGF1(algorithm=hashes.SHA256()),  # Mask generation function
+        algorithm=hashes.SHA256(),  # Hash algorithm
+        label=None  # Optional label
     )
 )
 ```
@@ -56,14 +56,14 @@ from cryptography.hazmat.primitives import hashes
 from cryptography.hazmat.primitives.asymmetric import padding
 
 # Sign message
-message = b"Message to sign"
+message = b"Message to sign"  # Message to sign
 signature = private_key.sign(
     message,
     padding.PSS(
-        mgf=padding.MGF1(hashes.SHA256()),
-        salt_length=padding.PSS.MAX_LENGTH
+        mgf=padding.MGF1(hashes.SHA256()),  # Mask generation function
+        salt_length=padding.PSS.MAX_LENGTH  # Maximum salt length
     ),
-    hashes.SHA256()
+    hashes.SHA256()  # Hash algorithm
 )
 
 # Verify signature
@@ -72,14 +72,14 @@ try:
         signature,
         message,
         padding.PSS(
-            mgf=padding.MGF1(hashes.SHA256()),
-            salt_length=padding.PSS.MAX_LENGTH
+            mgf=padding.MGF1(hashes.SHA256()),  # Mask generation function
+            salt_length=padding.PSS.MAX_LENGTH  # Maximum salt length
         ),
-        hashes.SHA256()
+        hashes.SHA256()  # Hash algorithm
     )
-    print("Signature is valid")
+    print("Signature is valid")  # Print if signature is valid
 except:
-    print("Signature is invalid")
+    print("Signature is invalid")  # Print if signature is invalid
 ```
 
 ### 1.2 Certificate Structure
@@ -88,24 +88,24 @@ except:
 ```text
 Certificate:
     Data:
-        Version: 3 (0x2)
-        Serial Number: 1234 (0x4d2)
-        Signature Algorithm: sha256WithRSAEncryption
-        Issuer: C=US, O=Example CA, CN=Example Root CA
+        Version: 3 (0x2)  # Certificate version
+        Serial Number: 1234 (0x4d2)  # Unique serial number
+        Signature Algorithm: sha256WithRSAEncryption  # Algorithm used for signature
+        Issuer: C=US, O=Example CA, CN=Example Root CA  # Certificate issuer
         Validity
-            Not Before: Jan 1 00:00:00 2024 GMT
-            Not After : Jan 1 00:00:00 2025 GMT
-        Subject: C=US, O=Example Org, CN=example.com
+            Not Before: Jan 1 00:00:00 2024 GMT  # Start of validity period
+            Not After : Jan 1 00:00:00 2025 GMT  # End of validity period
+        Subject: C=US, O=Example Org, CN=example.com  # Certificate subject
         Subject Public Key Info:
-            Public Key Algorithm: rsaEncryption
-            RSA Public Key: (2048 bit)
+            Public Key Algorithm: rsaEncryption  # Public key algorithm
+            RSA Public Key: (2048 bit)  # Public key size
         X509v3 extensions:
             X509v3 Basic Constraints: 
-                CA:FALSE
+                CA:FALSE  # Not a CA
             X509v3 Key Usage: 
-                Digital Signature, Key Encipherment
+                Digital Signature, Key Encipherment  # Key usage
             X509v3 Subject Alternative Name: 
-                DNS:example.com, DNS:www.example.com
+                DNS:example.com, DNS:www.example.com  # Alternative names
 ```
 
 ## 2. Certificate Authority (CA) Operations
@@ -113,62 +113,62 @@ Certificate:
 ### 2.1 Root CA Setup
 ```bash
 # Generate root CA private key
-openssl genrsa -out root-ca.key 4096
+openssl genrsa -out root-ca.key 4096  # Generate 4096-bit RSA private key
 
 # Create root CA certificate
 openssl req -x509 -new -nodes -key root-ca.key -sha256 -days 3650 \
-    -out root-ca.crt -subj "/C=US/O=Example CA/CN=Example Root CA"
+    -out root-ca.crt -subj "/C=US/O=Example CA/CN=Example Root CA"  # Create self-signed certificate
 
 # Create CA configuration
 cat > ca.conf << EOF
 [ca]
-default_ca = CA_default
+default_ca = CA_default  # Default CA section
 
 [CA_default]
-dir = ./ca
-certs = \$dir/certs
-crl_dir = \$dir/crl
-database = \$dir/index.txt
-new_certs_dir = \$dir/newcerts
-certificate = \$dir/ca.crt
-serial = \$dir/serial
-crl = \$dir/crl.pem
-private_key = \$dir/ca.key
-RANDFILE = \$dir/private/.rand
-x509_extensions = usr_cert
-name_opt = ca_default
-cert_opt = ca_default
-default_days = 365
-default_crl_days = 30
-default_md = sha256
-preserve = no
-policy = policy_match
+dir = ./ca  # Directory for CA files
+certs = \$dir/certs  # Directory for certificates
+crl_dir = \$dir/crl  # Directory for CRLs
+database = \$dir/index.txt  # Database file
+new_certs_dir = \$dir/newcerts  # Directory for new certificates
+certificate = \$dir/ca.crt  # CA certificate
+serial = \$dir/serial  # Serial number file
+crl = \$dir/crl.pem  # CRL file
+private_key = \$dir/ca.key  # CA private key
+RANDFILE = \$dir/private/.rand  # Random number file
+x509_extensions = usr_cert  # X.509 extensions
+name_opt = ca_default  # Name options
+cert_opt = ca_default  # Certificate options
+default_days = 365  # Default validity period
+default_crl_days = 30  # Default CRL validity period
+default_md = sha256  # Default message digest
+preserve = no  # Do not preserve old certificates
+policy = policy_match  # Policy to match
 
 [policy_match]
-countryName = match
-stateOrProvinceName = match
-organizationName = match
-organizationalUnitName = optional
-commonName = supplied
-emailAddress = optional
+countryName = match  # Match country name
+stateOrProvinceName = match  # Match state or province name
+organizationName = match  # Match organization name
+organizationalUnitName = optional  # Optional organizational unit name
+commonName = supplied  # Common name must be supplied
+emailAddress = optional  # Optional email address
 EOF
 ```
 
 ### 2.2 Intermediate CA Setup
 ```bash
 # Generate intermediate CA private key
-openssl genrsa -out intermediate-ca.key 4096
+openssl genrsa -out intermediate-ca.key 4096  # Generate 4096-bit RSA private key
 
 # Create intermediate CA CSR
 openssl req -new -key intermediate-ca.key \
     -out intermediate-ca.csr \
-    -subj "/C=US/O=Example CA/CN=Example Intermediate CA"
+    -subj "/C=US/O=Example CA/CN=Example Intermediate CA"  # Create CSR
 
 # Sign intermediate CA certificate
 openssl ca -config ca.conf -extensions v3_intermediate_ca \
     -days 1825 -notext -md sha256 \
     -in intermediate-ca.csr \
-    -out intermediate-ca.crt
+    -out intermediate-ca.crt  # Sign CSR to create certificate
 ```
 
 ## 3. Certificate Lifecycle Management
@@ -183,27 +183,27 @@ from datetime import datetime, timedelta
 # Create certificate
 cert = x509.CertificateBuilder().subject_name(
     x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, u"example.com"),
+        x509.NameAttribute(NameOID.COMMON_NAME, u"example.com"),  # Set subject common name
     ])
 ).issuer_name(
     x509.Name([
-        x509.NameAttribute(NameOID.COMMON_NAME, u"Example CA"),
+        x509.NameAttribute(NameOID.COMMON_NAME, u"Example CA"),  # Set issuer common name
     ])
 ).public_key(
-    public_key
+    public_key  # Set public key
 ).serial_number(
-    x509.random_serial_number()
+    x509.random_serial_number()  # Generate random serial number
 ).not_valid_before(
-    datetime.utcnow()
+    datetime.utcnow()  # Set validity start date
 ).not_valid_after(
-    datetime.utcnow() + timedelta(days=365)
+    datetime.utcnow() + timedelta(days=365)  # Set validity end date
 ).add_extension(
     x509.SubjectAlternativeName([
-        x509.DNSName(u"example.com"),
-        x509.DNSName(u"www.example.com"),
+        x509.DNSName(u"example.com"),  # Add DNS name
+        x509.DNSName(u"www.example.com"),  # Add another DNS name
     ]),
-    critical=False,
-).sign(private_key, hashes.SHA256())
+    critical=False,  # Extension is not critical
+).sign(private_key, hashes.SHA256())  # Sign certificate with private key
 ```
 
 ### 3.2 Certificate Validation
@@ -215,20 +215,20 @@ from cryptography.hazmat.primitives.asymmetric import padding
 
 def validate_certificate(cert_pem, ca_cert_pem):
     # Load certificates
-    cert = load_pem_x509_certificate(cert_pem)
-    ca_cert = load_pem_x509_certificate(ca_cert_pem)
+    cert = load_pem_x509_certificate(cert_pem)  # Load certificate
+    ca_cert = load_pem_x509_certificate(ca_cert_pem)  # Load CA certificate
     
     # Verify signature
     try:
         ca_cert.public_key().verify(
             cert.signature,
             cert.tbs_certificate_bytes,
-            padding.PKCS1v15(),
-            cert.signature_hash_algorithm
+            padding.PKCS1v15(),  # Use PKCS1v15 padding
+            cert.signature_hash_algorithm  # Use certificate's hash algorithm
         )
-        return True
+        return True  # Return True if signature is valid
     except:
-        return False
+        return False  # Return False if signature is invalid
 ```
 
 ## 4. Advanced Key Management
@@ -243,21 +243,21 @@ import os
 
 # Generate key with secure parameters
 private_key = rsa.generate_private_key(
-    public_exponent=65537,
-    key_size=4096,
-    backend=default_backend()
+    public_exponent=65537,  # Standard RSA public exponent
+    key_size=4096,  # Key size in bits
+    backend=default_backend()  # Use default backend
 )
 
 # Secure storage with encryption
 encrypted_pem = private_key.private_bytes(
-    encoding=serialization.Encoding.PEM,
-    format=serialization.PrivateFormat.PKCS8,
-    encryption_algorithm=serialization.BestAvailableEncryption(b'password')
+    encoding=serialization.Encoding.PEM,  # Use PEM encoding
+    format=serialization.PrivateFormat.PKCS8,  # Use PKCS8 format
+    encryption_algorithm=serialization.BestAvailableEncryption(b'password')  # Encrypt with password
 )
 
 # Save to secure storage
 with open('private_key.pem', 'wb') as f:
-    f.write(encrypted_pem)
+    f.write(encrypted_pem)  # Write encrypted key to file
 ```
 
 ### 4.2 Key Rotation
@@ -266,19 +266,19 @@ with open('private_key.pem', 'wb') as f:
 def rotate_keys(current_key, new_key):
     # Generate new key pair
     new_private_key = rsa.generate_private_key(
-        public_exponent=65537,
-        key_size=4096,
-        backend=default_backend()
+        public_exponent=65537,  # Standard RSA public exponent
+        key_size=4096,  # Key size in bits
+        backend=default_backend()  # Use default backend
     )
     
     # Create new certificate
-    new_cert = create_certificate(new_private_key)
+    new_cert = create_certificate(new_private_key)  # Create new certificate
     
     # Update trust store
-    update_trust_store(new_cert)
+    update_trust_store(new_cert)  # Update trust store with new certificate
     
     # Grace period for old key
-    schedule_key_removal(current_key, grace_period=7)
+    schedule_key_removal(current_key, grace_period=7)  # Schedule removal of old key
 ```
 
 ## 5. Workload Identity Integration
@@ -350,17 +350,17 @@ Example workflow for dynamic credential management:
 apiVersion: cert-manager.io/v1
 kind: Certificate
 metadata:
-  name: workload-cert
+  name: workload-cert  # Name of the certificate
 spec:
-  duration: 1h
-  renewBefore: 10m
-  secretName: workload-tls
+  duration: 1h  # Certificate validity period
+  renewBefore: 10m  # Renew before expiration
+  secretName: workload-tls  # Secret to store the certificate
   issuerRef:
-    name: spire-issuer
-    kind: ClusterIssuer
+    name: spire-issuer  # Reference to the issuer
+    kind: ClusterIssuer  # Kind of issuer
   usages:
-    - server auth
-    - client auth
+    - server auth  # Usage for server authentication
+    - client auth  # Usage for client authentication
 ```
 
 #### Real-time Revocation
@@ -397,17 +397,17 @@ Example attestation process:
 # Example: TPM Attestation
 def verify_workload_attestation(attestation_data):
     # Verify TPM quote
-    quote = attestation_data['quote']
-    if not verify_tpm_quote(quote):
-        raise SecurityError("Invalid TPM quote")
+    quote = attestation_data['quote']  # Get TPM quote
+    if not verify_tpm_quote(quote):  # Verify TPM quote
+        raise SecurityError("Invalid TPM quote")  # Raise error if invalid
     
     # Verify platform state
-    pcr_values = attestation_data['pcr_values']
-    if not verify_platform_state(pcr_values):
-        raise SecurityError("Platform state mismatch")
+    pcr_values = attestation_data['pcr_values']  # Get PCR values
+    if not verify_platform_state(pcr_values):  # Verify platform state
+        raise SecurityError("Platform state mismatch")  # Raise error if mismatch
     
     # Issue certificate if attestation passes
-    return issue_workload_certificate(attestation_data['workload_id'])
+    return issue_workload_certificate(attestation_data['workload_id'])  # Issue certificate
 ```
 
 ### Workload Identity Integration
@@ -443,13 +443,13 @@ Example configuration:
 apiVersion: security.istio.io/v1beta1
 kind: PeerAuthentication
 metadata:
-  name: default
+  name: default  # Name of the authentication policy
 spec:
   mtls:
-    mode: STRICT
+    mode: STRICT  # Enforce mTLS
   selector:
     matchLabels:
-      app: my-service
+      app: my-service  # Selector for the service
 ```
 
 #### Cloud IAM Integration
@@ -466,11 +466,11 @@ Example trust configuration:
 apiVersion: iam.cnrm.cloud.google.com/v1beta1
 kind: IAMWorkloadIdentityPool
 metadata:
-  name: my-pool
+  name: my-pool  # Name of the identity pool
 spec:
-  displayName: "My Workload Identity Pool"
-  description: "Pool for workload identity federation"
-  disabled: false
+  displayName: "My Workload Identity Pool"  # Display name
+  description: "Pool for workload identity federation"  # Description
+  disabled: false  # Enable the pool
 ```
 
 #### CI/CD Pipeline Integration
@@ -488,16 +488,16 @@ name: Secure Pipeline
 on: [push]
 jobs:
   build:
-    runs-on: ubuntu-latest
+    runs-on: ubuntu-latest  # Run on latest Ubuntu
     permissions:
-      id-token: write
+      id-token: write  # Allow writing ID tokens
     steps:
-      - uses: actions/checkout@v2
+      - uses: actions/checkout@v2  # Checkout code
       - name: Authenticate to AWS
-        uses: aws-actions/configure-aws-credentials@v1
+        uses: aws-actions/configure-aws-credentials@v1  # Configure AWS credentials
         with:
-          role-to-assume: arn:aws:iam::123456789012:role/github-actions
-          aws-region: us-west-2
+          role-to-assume: arn:aws:iam::123456789012:role/github-actions  # Role to assume
+          aws-region: us-west-2  # AWS region
 ```
 
 #### Human-to-Workload Trust

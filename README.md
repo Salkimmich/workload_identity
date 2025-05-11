@@ -1,3 +1,47 @@
+# Workload Identity Project
+
+Welcome to the Workload Identity project! This repository contains a comprehensive set of documentation and guides to help you understand, implement, and manage workload identity in cloud-native environments.
+
+## Documentation Overview
+
+Below is a list of the key README files and guides available in this repository:
+
+1. **[Architecture Guide](docs/architecture_guide.md)**: A detailed overview of the system architecture, components, and their interactions. This guide is essential for understanding the design principles and implementation details of the workload identity system.
+
+2. **[Developer Guide](docs/developer_guide.md)**: Instructions and best practices for developers looking to integrate or extend the workload identity system. This guide includes API references, implementation tips, and code examples.
+
+3. **[Compliance Guide](docs/compliance_guide.md)**: Guidelines and requirements for ensuring compliance with security standards and regulations. This guide covers metrics, thresholds, and automated compliance checks.
+
+4. **[Deployment Guide](docs/deployment_guide.md)**: Step-by-step instructions for deploying the workload identity system in various environments, including Kubernetes and cloud providers.
+
+5. **[Monitoring Guide](docs/monitoring_guide.md)**: Information on how to monitor the workload identity system, including metrics collection, alerting, and performance optimization.
+
+6. **[Security Best Practices](docs/security_best_practices.md)**: Best practices for securing the workload identity system, including encryption, access control, and audit logging.
+
+7. **[API Reference Guide](docs/api_reference.md)**: Detailed documentation of the APIs provided by the workload identity system, including endpoints, parameters, and response formats.
+
+8. **[Migration Guide](docs/migration_guide.md)**: Instructions for migrating from existing identity systems to the workload identity system, including compatibility considerations and migration strategies.
+
+9. **[Troubleshooting Guide](docs/troubleshooting_guide.md)**: Common issues and solutions for troubleshooting the workload identity system, including diagnostic tools and debugging tips.
+
+10. **[Integration Guide](docs/integration_guide.md)**: Guidelines for integrating the workload identity system with other services and platforms, including cloud providers and service meshes.
+
+## Getting Started
+
+To get started with the Workload Identity project, please refer to the [Architecture Guide](docs/architecture_guide.md) for an overview of the system design and the [Developer Guide](docs/developer_guide.md) for implementation details.
+
+## Contributing
+
+We welcome contributions! Please see the [Contributing Guide](CONTRIBUTING.md) for more information on how to contribute to this project.
+
+## License
+
+This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
+
+## Contact
+
+For any questions or feedback, please contact the maintainer at [salkimmich](https://github.com/salkimmich).
+
 # Workload Identity System
 
 ## Introduction
@@ -10,196 +54,73 @@ In today's cloud-native and hyper-distributed architectures, identity is no long
 
 This evolution draws from decades of identity protocols—Kerberos, X.509, OAuth2, and OIDC—but is tailored to the demands of ephemeral infrastructure, zero trust models, and sovereign cloud environments. Trust becomes contextual and time-bound. This architecture embodies that shift.
 
-## SPIFFE/SPIRE Implementation Review Checklist
+## SPIRE Implementation
 
-### Core Components Review
+The project uses SPIRE (SPIFFE Runtime Environment) as its core workload identity provider. The implementation includes:
 
-#### 1. SPIRE Server (`infrastructure/kubernetes/spire/server.yaml`)
-- [ ] Trust domain configuration matches organization's domain structure
-- [ ] CA bundle and trust anchor configuration is secure
-- [ ] Federation settings are properly configured
-- [ ] High-availability settings are appropriate
-- [ ] Resource limits and requests are set correctly
-- [ ] Security context is properly configured
-- [ ] Volume mounts for CA bundles and trust anchors are correct
+### Core Components
 
-#### 2. SPIRE Agent (`infrastructure/kubernetes/spire/agent.yaml`)
-- [ ] Node attestation is properly configured
-- [ ] Workload registration is set up correctly
-- [ ] Integration with Kubernetes service accounts is working
-- [ ] SPIFFE ID issuance is configured properly
-- [ ] Security context and resource limits are appropriate
-- [ ] Volume mounts for attestation data are correct
+1. **SPIRE Server**
+   - Deployed as a Kubernetes Deployment
+   - High availability configuration with rolling updates
+   - Comprehensive health checks and monitoring
+   - Secure secret management
+   - Resource limits and requests configured
+   - Security context with non-root user execution
 
-#### 3. Configuration (`infrastructure/kubernetes/spire/configmap.yaml`)
-- [ ] Trust domain configuration is consistent
-- [ ] Federation settings are properly configured
-- [ ] Attestation configuration is correct
-- [ ] Logging and monitoring settings are appropriate
-- [ ] CA bundle and trust anchor settings are secure
+2. **SPIRE Agent**
+   - Deployed as a Kubernetes DaemonSet
+   - Rolling update strategy for controlled updates
+   - Node attestation and workload registration
+   - Health checks and monitoring
+   - Resource limits and requests configured
+   - Security context with non-root user execution
 
-#### 4. RBAC (`infrastructure/kubernetes/spire/rbac.yaml`)
-- [ ] Roles and bindings follow least privilege principle
-- [ ] Federation permissions are properly configured
-- [ ] Trust anchor management permissions are secure
-- [ ] Service account permissions are appropriate
+3. **Certificate Management**
+   - Automated certificate generation and rotation
+   - CRL (Certificate Revocation List) support
+   - Backup and disaster recovery procedures
+   - Secure storage of certificates and keys
 
-### Federation and Trust
+### Security Features
 
-#### 5. Trust Bundle (`infrastructure/kubernetes/spire/trust-bundle.yaml`)
-- [ ] Trust bundle configuration is correct
-- [ ] Federation with external IdPs is properly configured
-- [ ] CA bundle rotation is set up
-- [ ] Failover settings are appropriate
+1. **Certificate Security**
+   - Strong key usage constraints
+   - Extended key usage validation
+   - Certificate revocation support
+   - Automated backup of certificates
 
-#### 6. Federation (`infrastructure/kubernetes/spire/federation.yaml`)
-- [ ] Federation configuration is correct
-- [ ] Trust bundle exchange is properly configured
-- [ ] Validation settings are appropriate
-- [ ] Cross-domain trust is properly set up
+2. **Runtime Security**
+   - Non-root user execution
+   - Read-only root filesystem
+   - Dropped capabilities
+   - Prevented privilege escalation
 
-### Security and Operations
+3. **Operational Security**
+   - Comprehensive health checks
+   - Resource limits and requests
+   - Graceful termination
+   - Secure volume mounts
 
-#### 7. Secrets (`infrastructure/kubernetes/spire/secrets.yaml`)
-- [ ] CA keys are properly secured
-- [ ] Trust anchors are properly managed
-- [ ] Encryption settings are appropriate
-- [ ] Rotation procedures are configured
+### Monitoring and Operations
 
-#### 8. Network Policy (`infrastructure/kubernetes/spire/network-policy.yaml`)
-- [ ] Server-agent communication is properly secured
-- [ ] Federation traffic is properly controlled
-- [ ] Trust bundle exchange is secured
-- [ ] Ingress/egress rules are appropriate
+1. **Health Checks**
+   - Startup probes for slow-starting containers
+   - Liveness probes for container health
+   - Readiness probes for service availability
+   - Configurable timeouts and thresholds
 
-#### 9. Monitoring (`infrastructure/kubernetes/spire/monitoring.yaml`)
-- [ ] Prometheus metrics are properly configured
-- [ ] Grafana dashboards are set up
-- [ ] Alerting rules are appropriate
-- [ ] Federation health monitoring is configured
+2. **Resource Management**
+   - CPU and memory limits
+   - Resource requests for scheduling
+   - Graceful termination periods
+   - Update strategies for zero-downtime
 
-### Operational Readiness
-
-#### 10. Health Checks (`infrastructure/kubernetes/spire/health.yaml`)
-- [ ] Server health checks are configured
-- [ ] Agent health checks are configured
-- [ ] Federation health monitoring is set up
-- [ ] Trust bundle health checks are configured
-
-#### 11. Logging (`infrastructure/kubernetes/spire/logging.yaml`)
-- [ ] Log levels are appropriate
-- [ ] Log format is configured correctly
-- [ ] Federation logs are properly captured
-- [ ] Trust bundle logs are properly captured
-
-### Disaster Recovery
-
-#### 12. Backup (`infrastructure/kubernetes/spire/backup.yaml`)
-- [ ] CA bundle backup is configured
-- [ ] Trust anchor backup is configured
-- [ ] Backup schedule is appropriate
-- [ ] Retention policy is configured
-
-#### 13. Upgrade (`infrastructure/kubernetes/spire/upgrade.yaml`)
-- [ ] Upgrade procedures are documented
-- [ ] CA bundle rotation during upgrades is configured
-- [ ] Trust anchor rotation is configured
-- [ ] Rollback procedures are documented
-
-### Additional Considerations
-
-#### 14. Attestation (`infrastructure/kubernetes/spire/attestation.yaml`)
-- [ ] Node attestation is properly configured
-- [ ] Workload attestation is set up correctly
-- [ ] SPIFFE ID issuance is configured
-- [ ] Validation settings are appropriate
-
-#### 15. Volumes (`infrastructure/kubernetes/spire/volumes.yaml`)
-- [ ] CA bundle storage is properly configured
-- [ ] Trust anchor storage is properly configured
-- [ ] Persistent storage is set up correctly
-- [ ] Backup storage is configured
-
-### Review Process
-
-1. **Initial Review**
-   - [ ] Review all configuration files for syntax and structure
-   - [ ] Verify trust domain configuration
-   - [ ] Check federation settings
-   - [ ] Validate security configurations
-
-2. **Security Review**
-   - [ ] Verify RBAC configurations
-   - [ ] Check network policies
-   - [ ] Validate secret management
-   - [ ] Review attestation settings
-
-3. **Operational Review**
-   - [ ] Verify monitoring setup
-   - [ ] Check logging configuration
-   - [ ] Validate health checks
-   - [ ] Review backup procedures
-
-4. **Integration Review**
-   - [ ] Verify Kubernetes integration
-   - [ ] Check service mesh integration
-   - [ ] Validate cloud provider integration
-   - [ ] Review CI/CD integration
-
-5. **Documentation Review**
-   - [ ] Verify README and documentation
-   - [ ] Check configuration examples
-   - [ ] Validate troubleshooting guides
-   - [ ] Review security best practices
-
-### Post-Review Actions
-
-After completing the review, please provide feedback to the maintainer (salkimmich) regarding:
-
-#### 1. Technical Implementation
-- Areas where the implementation aligns with best practices
-- Potential improvements in security architecture
-- Scalability and performance considerations
-- Integration points that could be enhanced
-- Any technical debt or architectural concerns
-
-#### 2. Documentation Quality
-- Clarity and completeness of technical documentation
-- Missing or unclear implementation details
-- Areas where documentation could be enhanced
-- Examples or use cases that would be helpful
-- Any inconsistencies between documentation and implementation
-
-#### 3. Operational Aspects
-- Deployment and maintenance procedures
-- Monitoring and observability setup
-- Backup and recovery processes
-- Configuration management approach
-- Any operational concerns or suggestions
-
-#### 4. Security and Compliance
-- Security controls and their effectiveness
-- Compliance implementation details
-- Risk management approach
-- Audit and logging capabilities
-- Any security or compliance gaps identified
-
-Please provide specific examples and recommendations where possible, focusing on actionable improvements that would enhance the system's security, reliability, and maintainability.
-
-The workload identity system serves as a critical security component that:
-- Assigns unique, cryptographically verifiable identities to each workload
-- Enables secure, mutually authenticated communication between services
-- Provides fine-grained access control based on workload identity
-- Maintains comprehensive audit trails of service interactions
-- Supports compliance requirements through built-in security controls
-- Integrates with modern cloud platforms and container orchestration systems
-
-Built with enterprise-grade security and reliability in mind, this system is designed to be:
-- Production-ready with battle-tested security features
-- Cloud-native and container-friendly
-- Compliant with major security standards
-- Extensible for custom integrations
-- Observable with comprehensive monitoring
+3. **Backup and Recovery**
+   - Automated certificate backups
+   - Timestamped backup directories
+   - Secure backup storage
+   - Cleanup procedures
 
 ## Documentation
 

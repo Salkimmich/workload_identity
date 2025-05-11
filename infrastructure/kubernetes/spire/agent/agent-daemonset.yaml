@@ -1,3 +1,7 @@
+# SPIRE Agent DaemonSet
+# This file defines the Kubernetes DaemonSet for the SPIRE agent.
+# The SPIRE agent runs on every node in the cluster and provides workload identity to pods.
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -6,6 +10,14 @@ metadata:
   labels:
     app: spire-agent
 spec:
+  # Optional improvement: Update strategy for the DaemonSet
+  # Rationale: Ensures controlled updates and prevents service disruption
+  # maxUnavailable: Maximum number of pods that can be unavailable during update
+  updateStrategy:
+    type: RollingUpdate
+    rollingUpdate:
+      maxUnavailable: 1
+
   selector:
     matchLabels:
       app: spire-agent
@@ -14,47 +26,127 @@ spec:
       labels:
         app: spire-agent
     spec:
+      # Service account for the SPIRE agent
+      # This service account must have the necessary RBAC permissions
       serviceAccountName: spire-agent
+
+      # Optional improvement: Grace period for pod termination
+      # Rationale: Allows time for in-flight requests to complete
+      # Default: 30 seconds (adjust based on your workload)
+      terminationGracePeriodSeconds: 30
+
+      # Required: DNS policy for host network
+      # Rationale: Required for proper host networking and kubelet communication
+      dnsPolicy: ClusterFirstWithHostNet
+
       containers:
       - name: spire-agent
+        # SPIRE agent container image
+        # Use a specific version tag for production deployments
         image: ghcr.io/spiffe/spire-agent:1.5.0
+
+        # Optional improvement: Always pull the image
+        # Rationale: Ensures latest security patches are applied
+        # Note: May increase deployment time
+        imagePullPolicy: Always
+
+        # Command line arguments
+        # Points to the agent configuration file
         args: ["-config", "/run/spire/config/agent.conf"]
+
+        # Environment variables
+        # Sets the node name for agent identification
+        # Required: This is necessary for proper node identification
         env:
         - name: NODE_NAME
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+
         ports:
+        # Health check port
+        # Used for liveness and readiness probes
         - containerPort: 8080
           name: health
+
+        # Metrics port
+        # Used for Prometheus metrics collection
         - containerPort: 9091
           name: metrics
+
         volumeMounts:
+        # Configuration volume
+        # Mounts the agent configuration
         - name: spire-config
           mountPath: /run/spire/config
           readOnly: true
+
+        # Data volume
+        # Stores agent-specific data
+        # Optional improvement: Use hostPath for persistence
+        # Rationale: Maintains agent state across pod restarts
         - name: spire-data
           mountPath: /run/spire/data
+
+        # Secrets volume
+        # Mounts sensitive data like keys and certificates
         - name: spire-secrets
           mountPath: /run/spire/secrets
           readOnly: true
+
+        # Sockets volume
+        # Used for Unix domain socket communication with workloads
+        # Required: Must be accessible to workloads on the node
         - name: spire-sockets
           mountPath: /run/spire/sockets
+
+        # Kubelet socket volume
+        # Required for workload attestation
+        # Required: Must be accessible for proper workload identification
         - name: kubelet-socket
           mountPath: /var/run/kubernetes
           readOnly: true
+
+        # Optional improvement: Startup probe
+        # Rationale: Better handling of slow-starting containers
+        # Prevents premature restarts during initialization
+        startupProbe:
+          httpGet:
+            path: /live
+            port: health
+          failureThreshold: 30
+          periodSeconds: 10
+
+        # Liveness probe
+        # Ensures the container is running properly
+        # Optional improvement: Added timeout and failure threshold
+        # Rationale: Better handling of temporary network issues
         livenessProbe:
           httpGet:
             path: /live
             port: health
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Readiness probe
+        # Ensures the container is ready to handle requests
+        # Optional improvement: Added timeout and failure threshold
+        # Rationale: Better handling of temporary network issues
         readinessProbe:
           httpGet:
             path: /ready
             port: health
           initialDelaySeconds: 5
           periodSeconds: 10
+          timeoutSeconds: 5
+          failureThreshold: 3
+
+        # Resource requirements
+        # Adjust based on your workload and cluster capacity
+        # Optional improvement: Monitor and adjust these values
+        # Rationale: Prevents resource starvation and ensures performance
         resources:
           requests:
             cpu: 100m
@@ -62,31 +154,58 @@ spec:
           limits:
             cpu: 200m
             memory: 256Mi
+
+        # Security context
+        # Implements security best practices
+        # Required: These settings are mandatory for security
         securityContext:
+          # Run as non-root user
           runAsUser: 1000
           runAsGroup: 1000
           fsGroup: 1000
+          # Read-only root filesystem
           readOnlyRootFilesystem: true
+          # Prevent privilege escalation
           allowPrivilegeEscalation: false
+          # Drop all capabilities
           capabilities:
             drop:
             - ALL
+
       volumes:
+      # Configuration volume from ConfigMap
       - name: spire-config
         configMap:
           name: spire-agent
+
+      # Empty directory for agent data
+      # Optional improvement: Use hostPath for persistence
+      # Rationale: Maintains agent state across pod restarts
       - name: spire-data
         emptyDir: {}
+
+      # Secrets volume
+      # Contains sensitive data like keys and certificates
       - name: spire-secrets
         secret:
           secretName: spire-agent-secrets
+
+      # Host path for Unix domain sockets
+      # Required: Must be accessible to workloads on the node
       - name: spire-sockets
         hostPath:
           path: /run/spire/sockets
           type: DirectoryOrCreate
+
+      # Host path for kubelet socket
+      # Required: Must be accessible for proper workload identification
       - name: kubelet-socket
         hostPath:
           path: /var/run/kubernetes
           type: Directory
+
+      # Pod security context
+      # Sets the filesystem group
+      # Required: This setting is mandatory for security
       securityContext:
         fsGroup: 1000 
