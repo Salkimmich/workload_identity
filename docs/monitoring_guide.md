@@ -25,16 +25,43 @@ monitoring_stack:
       retention: "15d"
     node_exporter:
       version: "1.3.0"
+    opentelemetry:
+      version: "1.0.0"
+      collectors:
+        - "otlp"
+        - "prometheus"
+        - "jaeger"
   logging:
     loki:
       version: "2.4.0"
       retention: "30d"
     fluentd:
       version: "1.14.0"
+    opentelemetry:
+      version: "1.0.0"
+      processors:
+        - "batch"
+        - "memory_limiter"
   tracing:
     jaeger:
       version: "1.30.0"
       sampling_rate: 0.1
+    opentelemetry:
+      version: "1.0.0"
+      exporters:
+        - "jaeger"
+        - "otlp"
+  anomaly_detection:
+    service:
+      type: "ml"
+      model: "isolation_forest"
+      features:
+        - "auth_rate"
+        - "token_usage"
+        - "latency"
+      training:
+        interval: "24h"
+        window: "7d"
 ```
 
 ### 2. Component Monitoring
@@ -46,17 +73,54 @@ component_monitoring:
       - authentication_attempts
       - token_issuance
       - validation_errors
+      - federation_latency
+      - attestation_success
+      - attestation_failure
     logs:
       - auth_events
       - error_events
+      - federation_events
   certificate_authority:
     metrics:
       - certificate_issuance
       - revocation_events
       - validation_requests
+      - crypto_sign_latency
+      - ca_uptime
+      - certificate_expiry
     logs:
       - cert_events
       - error_events
+  federation:
+    metrics:
+      - idp_health
+      - token_exchange_latency
+      - federation_errors
+      - trust_store_status
+    logs:
+      - federation_events
+      - trust_events
+```
+
+### 3. High Availability
+```yaml
+# Example High Availability Configuration
+high_availability:
+  collectors:
+    replicas: 3
+    strategy: "active-active"
+    failover:
+      automatic: true
+      timeout: "30s"
+  storage:
+    type: "distributed"
+    replication_factor: 3
+    consistency: "eventual"
+  federation:
+    monitoring:
+      cross_cluster: true
+      central_collector: true
+      data_retention: "30d"
 ```
 
 ## Metrics Collection
@@ -71,18 +135,33 @@ core_metrics:
       labels:
         - "method"
         - "status"
+        - "cluster"
+        - "region"
     - name: "auth_latency_seconds"
       type: "histogram"
       buckets: [0.1, 0.5, 1.0, 2.0, 5.0]
-  authorization:
-    - name: "authz_requests_total"
+  attestation:
+    - name: "attestation_success_count"
       type: "counter"
       labels:
-        - "resource"
-        - "decision"
-    - name: "authz_latency_seconds"
+        - "workload_id"
+        - "attestation_type"
+    - name: "attestation_failure_count"
+      type: "counter"
+      labels:
+        - "workload_id"
+        - "failure_reason"
+  federation:
+    - name: "federation_latency_seconds"
       type: "histogram"
-      buckets: [0.1, 0.5, 1.0, 2.0, 5.0]
+      labels:
+        - "idp"
+        - "operation"
+    - name: "token_exchange_latency_seconds"
+      type: "histogram"
+      labels:
+        - "provider"
+        - "token_type"
 ```
 
 ### 2. System Metrics
@@ -92,15 +171,36 @@ system_metrics:
   resources:
     - name: "cpu_usage_percent"
       type: "gauge"
+      labels:
+        - "component"
+        - "instance"
     - name: "memory_usage_bytes"
       type: "gauge"
-    - name: "disk_usage_percent"
-      type: "gauge"
-  performance:
-    - name: "request_duration_seconds"
+      labels:
+        - "component"
+        - "instance"
+  crypto:
+    - name: "crypto_sign_latency_seconds"
       type: "histogram"
-    - name: "concurrent_requests"
+      labels:
+        - "operation"
+        - "key_type"
+    - name: "certificate_expiry_timestamp"
       type: "gauge"
+      labels:
+        - "cert_type"
+        - "issuer"
+  cloud:
+    - name: "sts_token_usage"
+      type: "counter"
+      labels:
+        - "provider"
+        - "operation"
+    - name: "cloud_api_latency"
+      type: "histogram"
+      labels:
+        - "provider"
+        - "service"
 ```
 
 ## Logging
@@ -112,10 +212,25 @@ log_configuration:
   format:
     type: "json"
     timestamp: "iso8601"
+    fields:
+      - "workload_id"
+      - "ip"
+      - "attestation_status"
+      - "cluster"
+      - "region"
   levels:
     default: "info"
     authentication: "debug"
     authorization: "debug"
+    federation: "debug"
+  security:
+    sensitive_fields:
+      - "token"
+      - "secret"
+      - "key"
+    masking:
+      type: "hash"
+      algorithm: "sha256"
   output:
     stdout: true
     file:
@@ -134,12 +249,27 @@ log_aggregation:
       - "app"
       - "environment"
       - "component"
-  retention:
-    period: "30d"
-    max_size: "100GB"
-  query:
-    timeout: "30s"
-    max_results: 1000
+      - "cluster"
+  federation:
+    sources:
+      - type: "keycloak"
+        endpoint: "https://keycloak/audit"
+      - type: "azure_ad"
+        endpoint: "https://graph.microsoft.com/v1.0/auditLogs"
+      - type: "aws_cloudtrail"
+        endpoint: "https://cloudtrail.amazonaws.com"
+  analysis:
+    anomaly_detection:
+      enabled: true
+      model: "lstm"
+      features:
+        - "request_rate"
+        - "error_rate"
+        - "latency"
+    siem_integration:
+      enabled: true
+      format: "cef"
+      destination: "splunk"
 ```
 
 ## Tracing
@@ -155,13 +285,23 @@ trace_configuration:
         rate: 0.2
       - service: "certificate-authority"
         rate: 0.2
+      - service: "federation"
+        rate: 0.3
   propagation:
     headers:
       - "x-b3-traceid"
       - "x-b3-spanid"
+      - "baggage"
+  security:
+    attributes:
+      - "identity_id"
+      - "auth_method"
+      - "policy_id"
+      - "attestation_status"
   storage:
     type: "jaeger"
     retention: "7d"
+    encryption: true
 ```
 
 ### 2. Trace Points
@@ -173,15 +313,30 @@ trace_points:
       attributes:
         - "token_type"
         - "validation_result"
+        - "federation_provider"
     - name: "certificate_validation"
       attributes:
         - "cert_type"
         - "validation_result"
-  authorization:
+        - "trust_chain"
+  federation:
+    - name: "oidc_token_exchange"
+      attributes:
+        - "provider"
+        - "latency"
+        - "status"
+    - name: "aws_sts_assume_role"
+      attributes:
+        - "role_arn"
+        - "latency"
+        - "status"
+  policy:
     - name: "policy_evaluation"
       attributes:
         - "policy_name"
         - "decision"
+        - "adaptive_actions"
+        - "anomaly_score"
 ```
 
 ## Alerting
@@ -195,10 +350,28 @@ alert_rules:
       condition: "rate(auth_failures_total[5m]) > 0.1"
       severity: "critical"
       duration: "5m"
-    - name: "auth_latency_high"
-      condition: "histogram_quantile(0.95, auth_latency_seconds) > 1"
+    - name: "unusual_token_usage"
+      condition: "anomaly_score(token_usage_rate) > 3"
       severity: "warning"
-      duration: "10m"
+      duration: "1m"
+  federation:
+    - name: "idp_unreachable"
+      condition: "up{job='idp'} == 0"
+      severity: "critical"
+      duration: "1m"
+    - name: "jwks_refresh_failed"
+      condition: "rate(jwks_refresh_errors_total[5m]) > 0"
+      severity: "critical"
+      duration: "5m"
+  security:
+    - name: "privilege_escalation_attempt"
+      condition: "rate(privilege_escalation_attempts_total[5m]) > 0"
+      severity: "critical"
+      duration: "1m"
+    - name: "attestation_failure_spike"
+      condition: "rate(attestation_failures_total[5m]) > 10"
+      severity: "warning"
+      duration: "5m"
 ```
 
 ### 2. Alert Management
@@ -207,18 +380,27 @@ alert_rules:
 alert_management:
   routing:
     critical:
-      - "pagerduty"
-      - "slack"
+      - type: "pagerduty"
+        service_key: "xxx"
+      - type: "slack"
+        channel: "#security-alerts"
     warning:
-      - "slack"
-  grouping:
-    by:
-      - "alertname"
-      - "severity"
-    interval: "5m"
-  silence:
-    duration: "1h"
-    reason: "required"
+      - type: "slack"
+        channel: "#monitoring"
+  automation:
+    responses:
+      - name: "disable_compromised_identity"
+        trigger: "suspicious_activity"
+        action: "webhook"
+        endpoint: "https://api.workload-identity/identities/{id}/disable"
+      - name: "tighten_firewall"
+        trigger: "attack_detected"
+        action: "lambda"
+        function: "security-response"
+  tuning:
+    ai_assisted: true
+    false_positive_reduction: true
+    baseline_learning: true
 ```
 
 ## Dashboards
@@ -227,36 +409,78 @@ alert_management:
 ```yaml
 # Example System Dashboard Configuration
 system_dashboard:
-  panels:
-    - name: "Authentication Overview"
-      metrics:
-        - "auth_attempts_total"
-        - "auth_failures_total"
-        - "auth_latency_seconds"
-    - name: "Authorization Overview"
-      metrics:
-        - "authz_requests_total"
-        - "authz_denials_total"
-        - "authz_latency_seconds"
-  refresh: "30s"
+  federation:
+    panels:
+      - title: "Federation Latency"
+        type: "graph"
+        metrics:
+          - "federation_latency_seconds"
+        labels:
+          - "idp"
+      - title: "Active Federated Sessions"
+        type: "gauge"
+        metrics:
+          - "active_federated_sessions"
+  attestation:
+    panels:
+      - title: "Attestation Success Rate"
+        type: "gauge"
+        metrics:
+          - "attestation_success_rate"
+      - title: "Attestation Failures"
+        type: "graph"
+        metrics:
+          - "attestation_failures_total"
+  trust:
+    panels:
+      - title: "Trust Store Status"
+        type: "status"
+        metrics:
+          - "trust_store_health"
+      - title: "Certificate Expiry"
+        type: "table"
+        metrics:
+          - "certificate_expiry_timestamp"
 ```
 
 ### 2. Security Dashboard
 ```yaml
 # Example Security Dashboard Configuration
 security_dashboard:
-  panels:
-    - name: "Certificate Status"
-      metrics:
-        - "cert_expiring_soon"
-        - "cert_revoked"
-        - "cert_validation_failures"
-    - name: "Access Patterns"
-      metrics:
-        - "unusual_access_patterns"
-        - "failed_attempts_by_ip"
-        - "suspicious_activities"
-  refresh: "1m"
+  anomalies:
+    panels:
+      - title: "Anomaly Score by Service"
+        type: "heatmap"
+        metrics:
+          - "anomaly_score"
+        labels:
+          - "service"
+      - title: "Suspicious Activities"
+        type: "table"
+        metrics:
+          - "suspicious_activity_count"
+  access_patterns:
+    panels:
+      - title: "Global Access Map"
+        type: "map"
+        metrics:
+          - "request_count"
+        labels:
+          - "region"
+      - title: "Resource Access Patterns"
+        type: "graph"
+        metrics:
+          - "resource_access_count"
+  key_management:
+    panels:
+      - title: "Key Rotation Status"
+        type: "table"
+        metrics:
+          - "key_rotation_status"
+      - title: "Certificate Status"
+        type: "status"
+        metrics:
+          - "certificate_status"
 ```
 
 ## Health Checks
@@ -265,21 +489,29 @@ security_dashboard:
 ```yaml
 # Example Component Health Configuration
 component_health:
-  identity_provider:
+  trust_chain:
     checks:
-      - name: "service_health"
-        endpoint: "/health"
-        interval: "30s"
-      - name: "database_health"
-        endpoint: "/health/db"
-        interval: "1m"
-  certificate_authority:
+      - name: "ca_self_test"
+        type: "periodic"
+        interval: "1h"
+        action: "sign_verify_test"
+      - name: "trust_store_validation"
+        type: "periodic"
+        interval: "6h"
+        action: "validate_chain"
+  external_dependencies:
     checks:
-      - name: "service_health"
-        endpoint: "/health"
-        interval: "30s"
-      - name: "storage_health"
-        endpoint: "/health/storage"
+      - name: "oidc_discovery"
+        type: "http"
+        endpoint: "https://idp/.well-known/openid-configuration"
+        interval: "5m"
+      - name: "crl_responder"
+        type: "http"
+        endpoint: "https://ca/crl"
+        interval: "5m"
+      - name: "hsm_health"
+        type: "custom"
+        script: "check_hsm.sh"
         interval: "1m"
 ```
 
@@ -287,22 +519,33 @@ component_health:
 ```yaml
 # Example Dependency Health Configuration
 dependency_health:
+  cloud_iam:
+    checks:
+      - name: "aws_sts_latency"
+        type: "latency"
+        endpoint: "https://sts.amazonaws.com"
+        threshold: "1s"
+      - name: "azure_ad_health"
+        type: "http"
+        endpoint: "https://graph.microsoft.com/v1.0/health"
+  spire:
+    checks:
+      - name: "spire_server"
+        type: "http"
+        endpoint: "https://spire-server/health"
+      - name: "spire_agent"
+        type: "http"
+        endpoint: "https://spire-agent/health"
   database:
     checks:
-      - name: "connection"
+      - name: "connection_pool"
+        type: "metric"
+        metric: "db_connection_pool_size"
+        threshold: "> 0"
+      - name: "query_latency"
+        type: "latency"
         query: "SELECT 1"
-        interval: "30s"
-      - name: "replication"
-        query: "SHOW REPLICA STATUS"
-        interval: "1m"
-  storage:
-    checks:
-      - name: "connectivity"
-        endpoint: "/health/storage"
-        interval: "30s"
-      - name: "performance"
-        endpoint: "/health/storage/performance"
-        interval: "5m"
+        threshold: "100ms"
 ```
 
 ## Performance Monitoring
@@ -311,40 +554,52 @@ dependency_health:
 ```yaml
 # Example Resource Monitoring Configuration
 resource_monitoring:
-  cpu:
-    thresholds:
-      warning: 70
-      critical: 90
-    collection:
-      interval: "30s"
-  memory:
-    thresholds:
-      warning: 80
-      critical: 95
-    collection:
-      interval: "30s"
-  disk:
-    thresholds:
-      warning: 80
-      critical: 90
-    collection:
-      interval: "1m"
+  identity_service:
+    metrics:
+      - name: "cpu_usage"
+        type: "gauge"
+        threshold: "80%"
+      - name: "memory_usage"
+        type: "gauge"
+        threshold: "85%"
+      - name: "auth_requests_per_second"
+        type: "rate"
+        threshold: "1000"
+  policy_engine:
+    metrics:
+      - name: "policy_evaluation_time"
+        type: "histogram"
+        buckets: [0.1, 0.5, 1.0]
+      - name: "rules_cache_hit_rate"
+        type: "gauge"
+        threshold: "95%"
 ```
 
 ### 2. Performance Metrics
 ```yaml
 # Example Performance Metrics Configuration
 performance_metrics:
-  latency:
-    - name: "p95_latency"
-      threshold: "500ms"
-    - name: "p99_latency"
-      threshold: "1s"
-  throughput:
-    - name: "requests_per_second"
-      threshold: 1000
-    - name: "concurrent_connections"
-      threshold: 500
+  authentication:
+    - name: "token_issuance_latency"
+      type: "histogram"
+      percentiles: [50, 95, 99]
+    - name: "auth_throughput"
+      type: "rate"
+      window: "1m"
+  policy:
+    - name: "policy_evaluation_time"
+      type: "histogram"
+      percentiles: [50, 95, 99]
+    - name: "rules_compilation_time"
+      type: "histogram"
+      percentiles: [50, 95, 99]
+  ai:
+    - name: "anomaly_detection_latency"
+      type: "histogram"
+      percentiles: [50, 95, 99]
+    - name: "model_inference_time"
+      type: "histogram"
+      percentiles: [50, 95, 99]
 ```
 
 ## Security Monitoring
@@ -353,50 +608,99 @@ performance_metrics:
 ```yaml
 # Example Security Metrics Configuration
 security_metrics:
-  authentication:
-    - name: "failed_attempts"
-      threshold: 10
-      window: "5m"
-    - name: "suspicious_ips"
-      threshold: 5
-      window: "1h"
-  authorization:
-    - name: "policy_violations"
-      threshold: 5
-      window: "5m"
-    - name: "unauthorized_access"
-      threshold: 3
-      window: "1h"
+  privilege:
+    - name: "escalation_attempts"
+      type: "counter"
+      labels:
+        - "identity"
+        - "resource"
+    - name: "unusual_access_patterns"
+      type: "counter"
+      labels:
+        - "identity"
+        - "pattern_type"
+  attestation:
+    - name: "attestation_failures"
+      type: "counter"
+      labels:
+        - "workload"
+        - "reason"
+    - name: "attestation_latency"
+      type: "histogram"
+      labels:
+        - "workload"
+        - "type"
 ```
 
-### 2. Security Alerts
+### 2. Anomaly Detection
 ```yaml
-# Example Security Alerts Configuration
-security_alerts:
-  authentication:
-    - name: "brute_force_attempt"
-      condition: "rate(auth_failures_total[5m]) > 10"
-      severity: "critical"
-    - name: "suspicious_activity"
-      condition: "unusual_access_patterns > 0"
-      severity: "warning"
-  authorization:
-    - name: "policy_violation"
-      condition: "policy_violations_total > 0"
-      severity: "critical"
-    - name: "unauthorized_access"
-      condition: "unauthorized_access_total > 0"
-      severity: "critical"
+# Example Anomaly Detection Configuration
+anomaly_detection:
+  models:
+    - name: "auth_anomaly"
+      type: "unsupervised"
+      algorithm: "isolation_forest"
+      features:
+        - "request_rate"
+        - "error_rate"
+        - "latency"
+    - name: "access_pattern"
+      type: "supervised"
+      algorithm: "random_forest"
+      features:
+        - "resource_access"
+        - "time_of_day"
+        - "location"
+  responses:
+    - name: "re_auth_required"
+      trigger: "high_anomaly_score"
+      action: "require_mfa"
+    - name: "disable_identity"
+      trigger: "critical_anomaly"
+      action: "disable_credentials"
+  integration:
+    - name: "incident_response"
+      type: "webhook"
+      endpoint: "https://api.workload-identity/incidents"
+    - name: "siem_alert"
+      type: "syslog"
+      format: "cef"
 ```
 
 ## Conclusion
 
-This guide provides comprehensive monitoring and observability instructions for the workload identity system. Remember to:
-- Monitor all critical components
-- Set up appropriate alerts
-- Maintain monitoring dashboards
-- Review and update metrics
-- Document monitoring procedures
+This enhanced monitoring system provides comprehensive observability for the workload identity system, incorporating:
+
+1. **Modern Observability**:
+   - OpenTelemetry integration
+   - AI-assisted anomaly detection
+   - Cross-cluster monitoring
+   - Federation-aware metrics
+
+2. **Security Focus**:
+   - Real-time threat detection
+   - Automated response capabilities
+   - Privacy-preserving logging
+   - Trust chain monitoring
+
+3. **Performance Insights**:
+   - Detailed latency tracking
+   - Resource utilization
+   - Policy evaluation metrics
+   - AI model performance
+
+4. **Best Practices**:
+   - Vendor-neutral implementation
+   - Continuous improvement
+   - Industry standard compliance
+   - Proactive security
+
+Remember to:
+- Regularly review and update monitoring configurations
+- Test alerting and response mechanisms
+- Validate anomaly detection models
+- Document any custom integrations
+- Monitor the monitoring system itself
 
 For additional information, refer to:
 - [Architecture Guide](architecture_guide.md)

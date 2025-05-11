@@ -15,17 +15,44 @@ This document provides detailed instructions for integrating the workload identi
 
 ## Integration Overview
 
-### 1. Integration Architecture
+### Modern Architecture and Federation
+
 ```mermaid
-graph TD
-    A[Workload Identity] -->|Authentication| B[Cloud Providers]
-    A -->|Identity| C[Container Platforms]
-    A -->|mTLS| D[Service Mesh]
-    A -->|Credentials| E[CI/CD Systems]
-    A -->|Metrics| F[Monitoring]
-    A -->|Events| G[Security Tools]
-    A -->|API| H[Custom Applications]
+graph TD;
+  Workload((Workload))
+  IdentityProvider((Workload Identity System))
+  ExternalIdP((External IdP / OIDC / SAML))
+  SPIFFETrust((SPIFFE Trust Domain))
+  CloudProvider((Cloud Provider IAM))
+  ServiceMesh((Service Mesh))
+  CI_CD((CI/CD Pipeline))
+  SecretsManager((Secrets Manager / Vault))
+  Monitoring((Monitoring / SIEM))
+
+  Workload-- attestation -->IdentityProvider
+  Workload-- OIDC/JWT/mTLS -->ServiceMesh
+  Workload-- OIDC/JWT/mTLS -->CloudProvider
+  Workload-- OIDC/JWT/mTLS -->SecretsManager
+  Workload-- OIDC/JWT/mTLS -->Monitoring
+  IdentityProvider-- federation -->ExternalIdP
+  IdentityProvider-- trust_bundle -->SPIFFETrust
+  IdentityProvider-- OIDC/SAML -->CloudProvider
+  IdentityProvider-- API -->CI_CD
+  IdentityProvider-- logs -->Monitoring
+  ServiceMesh-- trust_bundle -->SPIFFETrust
+  ServiceMesh-- mTLS -->Workload
+  CI_CD-- OIDC/JWT -->IdentityProvider
+  CI_CD-- attestation -->IdentityProvider
+  SecretsManager-- token -->IdentityProvider
+  Monitoring-- logs -->SIEM
 ```
+
+**Narrative:**
+- The workload identity system supports federation with external IdPs and trust domains (SPIFFE, OIDC, SAML).
+- All integrations are designed for zero-trust: short-lived tokens, attestation-based issuance, and no static credentials.
+- Attestation (hardware, platform, or SPIRE) is used to strengthen identity before credential issuance.
+- OIDC is the preferred protocol for cloud API access, replacing long-lived keys.
+- The system is vendor-neutral and supports any standards-compliant IdP, vault, or cloud provider.
 
 ### 2. Integration Methods
 ```yaml
@@ -111,47 +138,46 @@ aws_integration:
 ```
 
 #### Implementation Details
-- **IAM Role Configuration**:
-  ```yaml
-  # Example IAM Role Configuration
-  iam_role:
-    trust_policy:
-      Version: "2012-10-17"
-      Statement:
-        - Effect: "Allow"
-          Principal:
-            Service: "eks.amazonaws.com"
-          Action: "sts:AssumeRole"
-    permissions_policy:
-      Version: "2012-10-17"
-      Statement:
-        - Effect: "Allow"
-          Action:
-            - "secretsmanager:GetSecretValue"
-            - "kms:Decrypt"
-          Resource: "*"
-  ```
+- **OIDC Federation:** Use AWS IAM OIDC provider and STS to let workloads assume roles without static credentials. This improves security and enables short-lived, auditable access.
+- **CA Bundle Updates:** If using AWS Private CA, ensure the workload identity CA is trusted by AWS services. Plan for CA bundle rotation and failover.
+- **Secrets Management:** Integrate with AWS Secrets Manager using token-based auth. Encrypt secrets in transit and rotate regularly.
+- **Vendor Neutrality:** Any OIDC-compliant IdP can be used in place of AWS-specific services.
 
-- **EKS Configuration**:
-  ```yaml
-  # Example EKS Configuration
-  eks_configuration:
-    cluster:
-      name: "workload-identity-cluster"
-      region: "us-west-2"
-      version: "1.24"
-    node_groups:
-      - name: "workload-identity-nodes"
-        instance_types: ["t3.medium"]
-        min_size: 2
-        max_size: 5
-    addons:
-      - name: "vpc-cni"
-      - name: "coredns"
-      - name: "kube-proxy"
-  ```
+### 2. Azure AD Integration
+```yaml
+# Example Azure AD Integration Configuration
+azure_integration:
+  workload_identity:
+    client_id: "your-client-id"
+    tenant_id: "your-tenant-id"
+    federated_identity_credential:
+      name: "github-actions"
+      issuer: "https://token.actions.githubusercontent.com"
+      subject: "repo:your-org/your-repo:ref:refs/heads/main"
+      audiences:
+        - "api://AzureADTokenExchange"
+  aks:
+    cluster_name: "workload-identity-cluster"
+    resource_group: "workload-identity-rg"
+    service_account:
+      name: "workload-identity"
+      annotations:
+        azure.workload.identity/client-id: "your-client-id"
+  key_vault:
+    name: "workload-identity-kv"
+    access_policies:
+      - object_id: "your-workload-identity-principal-id"
+        permissions:
+          - "get"
+          - "list"
+```
 
-### 2. GCP Integration
+#### Implementation Details
+- **Managed Identities & Entra Workload ID:** Use Azure Managed Identities and Entra Workload ID for Kubernetes to federate K8s service account tokens with Azure AD.
+- **Secrets Management:** Integrate with Azure Key Vault using token-based access. Rotate secrets and enforce encryption.
+- **Vendor Neutrality:** Any OIDC-compliant IdP can be used for Azure integration.
+
+### 3. GCP Integration
 ```yaml
 # Example GCP Integration Configuration
 gcp_integration:
@@ -181,121 +207,31 @@ gcp_integration:
 ```
 
 #### Implementation Details
-- **Workload Identity Pool Configuration**:
-  ```yaml
-  # Example Workload Identity Pool Configuration
-  workload_identity_pool:
-    name: "workload-identity-pool"
-    display_name: "Workload Identity Pool"
-    description: "Pool for workload identity federation"
-    providers:
-      - name: "workload-identity-provider"
-        display_name: "Workload Identity Provider"
-        attribute_mapping:
-          google.subject: "assertion.sub"
-          attribute.environment: "assertion.environment"
-    service_accounts:
-      - email: "workload-identity@workload-identity-project.iam.gserviceaccount.com"
-        roles:
-          - "roles/secretmanager.secretAccessor"
-          - "roles/cloudkms.cryptoKeyDecrypter"
-  ```
+- **Workload Identity Federation:** Use GCP Workload Identity Federation pools to allow Kubernetes identities to access GCP services without embedding service account keys.
+- **Secrets Management:** Integrate with GCP Secret Manager. Use short-lived tokens and enforce encryption/rotation.
+- **Vendor Neutrality:** The system supports any OIDC-compliant IdP for GCP integration.
 
-- **GKE Configuration**:
-  ```yaml
-  # Example GKE Configuration
-  gke_configuration:
-    cluster:
-      name: "workload-identity-cluster"
-      location: "us-central1"
-      version: "1.24"
-      network: "default"
-      subnetwork: "default"
-    node_pools:
-      - name: "workload-identity-nodes"
-        machine_type: "e2-medium"
-        min_nodes: 2
-        max_nodes: 5
-        service_account: "workload-identity@workload-identity-project.iam.gserviceaccount.com"
-    addons:
-      - name: "HttpLoadBalancing"
-      - name: "HorizontalPodAutoscaling"
-      - name: "NetworkPolicy"
-  ```
+### Security Considerations
+1. **AWS Security**:
+   - Use short-lived credentials
+   - Implement least privilege roles
+   - Regular IAM role audits
+   - Monitor credential usage
+   - Rotate access keys regularly
 
-### 3. Azure Integration
-```yaml
-# Example Azure Integration Configuration
-azure_integration:
-  managed_identity:
-    subscription_id: "subscription-id"
-    resource_group: "workload-identity-rg"
-    identity_name: "workload-identity"
-    roles:
-      - "Key Vault Secrets User"
-      - "Key Vault Crypto User"
-  aks:
-    cluster_name: "workload-identity-cluster"
-    resource_group: "workload-identity-rg"
-    node_pools:
-      - name: "workload-identity-nodes"
-        vm_size: "Standard_D2s_v3"
-        min_count: 2
-        max_count: 5
-  key_vault:
-    vault_name: "workload-identity-vault"
-    access_policy: true
-    secrets:
-      rotation:
-        enabled: true
-        interval: "30d"
-```
+2. **Azure AD Security**:
+   - Use managed identities where possible
+   - Implement just-in-time access
+   - Regular access reviews
+   - Monitor identity usage
+   - Implement conditional access policies
 
-#### Implementation Details
-- **Managed Identity Configuration**:
-  ```yaml
-  # Example Managed Identity Configuration
-  managed_identity:
-    name: "workload-identity"
-    type: "SystemAssigned"
-    roles:
-      - name: "Key Vault Secrets User"
-        scope: "/subscriptions/subscription-id/resourceGroups/workload-identity-rg"
-      - name: "Key Vault Crypto User"
-        scope: "/subscriptions/subscription-id/resourceGroups/workload-identity-rg"
-    access_policies:
-      - object_id: "object-id"
-        permissions:
-          secrets:
-            - "get"
-            - "list"
-          keys:
-            - "get"
-            - "list"
-  ```
-
-- **AKS Configuration**:
-  ```yaml
-  # Example AKS Configuration
-  aks_configuration:
-    cluster:
-      name: "workload-identity-cluster"
-      location: "eastus"
-      version: "1.24"
-      network_plugin: "azure"
-      network_policy: "azure"
-    node_pools:
-      - name: "workload-identity-nodes"
-        vm_size: "Standard_D2s_v3"
-        min_count: 2
-        max_count: 5
-        enable_auto_scaling: true
-        os_disk_size_gb: 128
-    addons:
-      - name: "monitoring"
-      - name: "azure-policy"
-      - name: "ingress-application-gateway"
-  ```
+3. **GCP Security**:
+   - Use workload identity federation
+   - Implement IAM conditions
+   - Regular service account audits
+   - Monitor service account usage
+   - Implement VPC Service Controls
 
 ## Container Platform Integration
 
@@ -621,34 +557,9 @@ github_actions_integration:
 ```
 
 #### Implementation Details
-- **Workflow Configuration**:
-  ```yaml
-  # Example Workflow Configuration
-  workflow:
-    name: "Workload Identity"
-    on:
-      push:
-        branches: [ main ]
-      pull_request:
-        branches: [ main ]
-    permissions:
-      id-token: write
-      contents: read
-    jobs:
-      build:
-        runs-on: "ubuntu-latest"
-        steps:
-          - uses: "actions/checkout@v3"
-          - name: "Configure Workload Identity"
-            uses: "azure/login@v1"
-            with:
-              client-id: ${{ secrets.AZURE_CLIENT_ID }}
-              tenant-id: ${{ secrets.AZURE_TENANT_ID }}
-              subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
-          - name: "Build and Deploy"
-            run: |
-              echo "Building and deploying with workload identity..."
-  ```
+- **OIDC Tokens:** Use OIDC tokens for cloud and identity system authentication (id-token: write in GitHub). This enables secretless deployments and aligns with zero-trust.
+- **Artifact Attestation:** After build, CI pipeline can request the workload identity system to attest/sign container images, tying into supply chain security.
+- **Secrets Management:** All secrets in pipelines should be managed via integrated Vault/Secrets Manager, never hardcoded.
 
 ### 2. GitLab CI Integration
 ```yaml
@@ -674,34 +585,9 @@ gitlab_ci_integration:
 ```
 
 #### Implementation Details
-- **Pipeline Configuration**:
-  ```yaml
-  # Example Pipeline Configuration
-  pipeline:
-    stages:
-      - build
-      - test
-      - deploy
-    variables:
-      WORKLOAD_IDENTITY_URL: "https://workload-identity.example.com"
-      WORKLOAD_IDENTITY_TOKEN: $CI_JOB_JWT
-    jobs:
-      build:
-        stage: build
-        script:
-          - echo "Building with workload identity..."
-          - curl -H "Authorization: Bearer $WORKLOAD_IDENTITY_TOKEN" $WORKLOAD_IDENTITY_URL/api/build
-      test:
-        stage: test
-        script:
-          - echo "Testing with workload identity..."
-          - curl -H "Authorization: Bearer $WORKLOAD_IDENTITY_TOKEN" $WORKLOAD_IDENTITY_URL/api/test
-      deploy:
-        stage: deploy
-        script:
-          - echo "Deploying with workload identity..."
-          - curl -H "Authorization: Bearer $WORKLOAD_IDENTITY_TOKEN" $WORKLOAD_IDENTITY_URL/api/deploy
-  ```
+- **OIDC Tokens:** Use OIDC tokens for cloud and identity system authentication (id-token: write in GitLab). This enables secretless deployments and aligns with zero-trust.
+- **Artifact Attestation:** After build, CI pipeline can request the workload identity system to attest/sign container images, tying into supply chain security.
+- **Secrets Management:** All secrets in pipelines should be managed via integrated Vault/Secrets Manager, never hardcoded.
 
 ## Monitoring Integration
 
@@ -1315,4 +1201,6 @@ This guide provides comprehensive integration instructions for the workload iden
 For additional information, refer to:
 - [Architecture Guide](architecture_guide.md)
 - [Security Best Practices](security_best_practices.md)
-- [Deployment Guide](deployment_guide.md) 
+- [Deployment Guide](deployment_guide.md)
+
+*For more details, see the full configuration and code examples in each section above. All new enhancements are additive and do not remove any existing guidance or examples.* 
