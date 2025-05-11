@@ -1,0 +1,71 @@
+#!/bin/bash
+
+# Pre-commit Hook
+# This script runs code quality and security checks before commits
+
+set -e
+
+echo "Running pre-commit checks..."
+
+# Get the list of files that are staged for commit
+FILES=$(git diff --cached --name-only --diff-filter=ACMR | grep -E '\.(go|yaml|yml|json|sh)$' | tr '\n' ' ')
+
+if [ -z "$FILES" ]; then
+    echo "No relevant files to check."
+    exit 0
+fi
+
+# Run linters
+echo "Running linters..."
+golangci-lint run $FILES
+
+# Run security checks
+echo "Running security checks..."
+gosec $FILES
+
+# Run dependency checks
+echo "Running dependency checks..."
+trivy fs .
+
+# Check for sensitive data
+echo "Checking for sensitive data..."
+if grep -r --include="*.{go,yaml,yml,json,sh}" -E "(password|secret|key|token)" $FILES; then
+    echo "Error: Potential sensitive data found in files."
+    echo "Please remove sensitive data before committing."
+    exit 1
+fi
+
+# Check for proper file permissions
+echo "Checking file permissions..."
+for file in $FILES; do
+    if [ -x "$file" ] && [[ ! "$file" =~ \.(sh|bash)$ ]]; then
+        echo "Error: $file has executable permissions but is not a shell script."
+        echo "Please remove executable permissions: chmod -x $file"
+        exit 1
+    fi
+done
+
+# Check for proper line endings
+echo "Checking line endings..."
+for file in $FILES; do
+    if grep -q $'\r' "$file"; then
+        echo "Error: $file contains Windows line endings (CRLF)."
+        echo "Please convert to Unix line endings (LF)."
+        exit 1
+    fi
+done
+
+# Check for proper file headers
+echo "Checking file headers..."
+for file in $FILES; do
+    if [[ "$file" =~ \.(go|yaml|yml|json|sh)$ ]]; then
+        if ! head -n 1 "$file" | grep -q "Copyright"; then
+            echo "Warning: $file is missing copyright header."
+            echo "Please add appropriate copyright header."
+            exit 1
+        fi
+    fi
+done
+
+echo "Pre-commit checks passed!"
+exit 0 

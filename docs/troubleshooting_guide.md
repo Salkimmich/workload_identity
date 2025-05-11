@@ -1,360 +1,285 @@
 # Troubleshooting Guide
 
-This document provides comprehensive guidance for diagnosing and resolving issues in the workload identity system.
+This guide provides solutions for common issues and problems that may arise when working with the workload identity system.
 
 ## Table of Contents
-1. [Common Issues](#common-issues)
-2. [Diagnostic Procedures](#diagnostic-procedures)
-3. [Log Analysis](#log-analysis)
-4. [Performance Troubleshooting](#performance-troubleshooting)
-5. [Security Issues](#security-issues)
-6. [Integration Problems](#integration-problems)
-7. [Recovery Procedures](#recovery-procedures)
-8. [Prevention Strategies](#prevention-strategies)
+1. [Certificate Issues](#certificate-issues)
+2. [Kubernetes Integration](#kubernetes-integration)
+3. [Security Issues](#security-issues)
+4. [Performance Issues](#performance-issues)
+5. [Common Commands](#common-commands)
 
-## Common Issues
+## Certificate Issues
 
-### 1. Authentication Failures
-```yaml
-# Authentication Issues
-authentication_issues:
-  token_validation:
-    symptoms:
-      - "401 Unauthorized errors"
-      - "Token validation failures"
-    causes:
-      - "Expired tokens"
-      - "Invalid signatures"
-      - "Clock skew"
-    solutions:
-      - "Check token expiration"
-      - "Verify signature algorithm"
-      - "Synchronize system clocks"
-  certificate_validation:
-    symptoms:
-      - "Certificate chain errors"
-      - "Trust validation failures"
-    causes:
-      - "Missing intermediate certificates"
-      - "Expired certificates"
-      - "Invalid trust chains"
-    solutions:
-      - "Update certificate chain"
-      - "Renew certificates"
-      - "Verify trust configuration"
+### 1. Certificate Generation Failures
+```bash
+# Check certificate generation logs
+kubectl logs -n spire deployment/spire-server
+
+# Verify certificate directory permissions
+ls -la certs/dev/
+
+# Check OpenSSL version
+openssl version
 ```
 
-### 2. Authorization Problems
-```yaml
-# Authorization Issues
-authorization_issues:
-  policy_evaluation:
-    symptoms:
-      - "403 Forbidden errors"
-      - "Unexpected access denials"
-    causes:
-      - "Misconfigured policies"
-      - "Missing permissions"
-      - "Policy conflicts"
-    solutions:
-      - "Review policy configuration"
-      - "Check permission assignments"
-      - "Resolve policy conflicts"
-  role_assignment:
-    symptoms:
-      - "Role not found errors"
-      - "Permission inheritance issues"
-    causes:
-      - "Missing role definitions"
-      - "Incorrect role hierarchy"
-      - "Role binding failures"
-    solutions:
-      - "Verify role definitions"
-      - "Check role hierarchy"
-      - "Validate role bindings"
+Common Solutions:
+- Ensure OpenSSL 3.0+ is installed
+- Verify directory permissions (should be 700)
+- Check for sufficient disk space
+- Verify system time is correct
+
+### 2. Certificate Validation Errors
+```bash
+# Verify certificate chain
+openssl verify -CAfile certs/dev/ca.crt certs/dev/server.crt
+
+# Check certificate details
+openssl x509 -in certs/dev/server.crt -text -noout
+
+# Verify certificate expiration
+openssl x509 -in certs/dev/server.crt -noout -dates
 ```
 
-## Diagnostic Procedures
+Common Solutions:
+- Ensure CA certificate is trusted
+- Check certificate expiration dates
+- Verify certificate chain is complete
+- Check for certificate revocation
 
-### 1. Health Checks
-```yaml
-# Health Check Procedures
-health_checks:
-  system_health:
-    commands:
-      - name: "check_identity_provider"
-        command: "curl -k https://identity-provider/health"
-        expected: "200 OK"
-      - name: "check_certificate_authority"
-        command: "curl -k https://certificate-authority/health"
-        expected: "200 OK"
-  component_health:
-    checks:
-      - name: "database_connection"
-        command: "check-db-connection.sh"
-        expected: "Connection successful"
-      - name: "cache_health"
-        command: "check-cache-health.sh"
-        expected: "Cache operational"
+### 3. Certificate Renewal Issues
+```bash
+# Check renewal logs
+kubectl logs -n spire deployment/spire-agent
+
+# Verify renewal configuration
+kubectl get configmap -n spire spire-agent-config -o yaml
+
+# Check certificate status
+kubectl get secret -n spire spire-agent-cert -o yaml
 ```
 
-### 2. Diagnostic Tools
-```yaml
-# Diagnostic Tools
-diagnostic_tools:
-  network:
-    - name: "tcpdump"
-      usage: "tcpdump -i any port 443"
-      purpose: "Network traffic analysis"
-    - name: "netstat"
-      usage: "netstat -tulpn"
-      purpose: "Connection status"
-  security:
-    - name: "openssl"
-      usage: "openssl s_client -connect host:443"
-      purpose: "TLS connection testing"
-    - name: "keytool"
-      usage: "keytool -list -v -keystore keystore.jks"
-      purpose: "Certificate inspection"
+Common Solutions:
+- Verify renewal configuration
+- Check agent connectivity
+- Ensure sufficient permissions
+- Monitor renewal logs
+
+## Kubernetes Integration
+
+### 1. SPIRE Server Issues
+```bash
+# Check server status
+kubectl get pods -n spire -l app=spire-server
+
+# View server logs
+kubectl logs -n spire deployment/spire-server
+
+# Verify server configuration
+kubectl get configmap -n spire spire-server-config -o yaml
 ```
 
-## Log Analysis
+Common Solutions:
+- Verify server configuration
+- Check resource limits
+- Ensure proper networking
+- Verify service account permissions
 
-### 1. Log Locations
-```yaml
-# Log Locations
-log_locations:
-  system_logs:
-    - path: "/var/log/identity-provider/"
-      files:
-        - "access.log"
-        - "error.log"
-    - path: "/var/log/certificate-authority/"
-      files:
-        - "ca.log"
-        - "audit.log"
-  application_logs:
-    - path: "/var/log/workload-identity/"
-      files:
-        - "application.log"
-        - "security.log"
+### 2. SPIRE Agent Issues
+```bash
+# Check agent status
+kubectl get pods -n spire -l app=spire-agent
+
+# View agent logs
+kubectl logs -n spire daemonset/spire-agent
+
+# Verify agent configuration
+kubectl get configmap -n spire spire-agent-config -o yaml
 ```
 
-### 2. Log Analysis Tools
-```yaml
-# Log Analysis Tools
-log_analysis:
-  tools:
-    - name: "grep"
-      usage: "grep 'ERROR' /var/log/identity-provider/error.log"
-      purpose: "Error pattern matching"
-    - name: "tail"
-      usage: "tail -f /var/log/workload-identity/application.log"
-      purpose: "Real-time log monitoring"
-  patterns:
-    - name: "authentication_failure"
-      pattern: "Authentication failed for user"
-      severity: "high"
-    - name: "certificate_error"
-      pattern: "Certificate validation failed"
-      severity: "high"
+Common Solutions:
+- Verify agent configuration
+- Check node connectivity
+- Ensure proper permissions
+- Monitor agent logs
+
+### 3. Workload Registration Issues
+```bash
+# Check workload status
+kubectl get pods -n demo
+
+# View workload logs
+kubectl logs -n demo deployment/frontend
+
+# Verify workload configuration
+kubectl get configmap -n demo frontend-config -o yaml
 ```
 
-## Performance Troubleshooting
-
-### 1. Performance Metrics
-```yaml
-# Performance Metrics
-performance_metrics:
-  system_metrics:
-    - name: "response_time"
-      threshold: "200ms"
-      action: "Investigate if exceeded"
-    - name: "error_rate"
-      threshold: "1%"
-      action: "Alert if exceeded"
-  resource_metrics:
-    - name: "cpu_usage"
-      threshold: "80%"
-      action: "Scale if exceeded"
-    - name: "memory_usage"
-      threshold: "85%"
-      action: "Scale if exceeded"
-```
-
-### 2. Performance Optimization
-```yaml
-# Performance Optimization
-performance_optimization:
-  caching:
-    - name: "token_cache"
-      configuration:
-        - "enable_caching"
-        - "set_ttl"
-    - name: "certificate_cache"
-      configuration:
-        - "enable_caching"
-        - "set_ttl"
-  connection_pooling:
-    - name: "database_pool"
-      configuration:
-        - "max_connections"
-        - "idle_timeout"
-    - name: "ldap_pool"
-      configuration:
-        - "max_connections"
-        - "idle_timeout"
-```
+Common Solutions:
+- Verify workload configuration
+- Check service account permissions
+- Ensure proper annotations
+- Monitor workload logs
 
 ## Security Issues
 
-### 1. Security Incidents
-```yaml
-# Security Incidents
-security_incidents:
-  types:
-    - name: "brute_force"
-      detection:
-        - "Failed login attempts"
-        - "IP-based blocking"
-      response:
-        - "Block IP"
-        - "Alert security team"
-    - name: "certificate_compromise"
-      detection:
-        - "Invalid certificate usage"
-        - "Revocation requests"
-      response:
-        - "Revoke certificate"
-        - "Issue new certificate"
+### 1. Authentication Failures
+```bash
+# Check authentication logs
+kubectl logs -n spire deployment/spire-server | grep "authentication"
+
+# Verify mTLS configuration
+kubectl get configmap -n spire spire-server-config -o yaml
+
+# Check certificate validity
+openssl verify -CAfile certs/dev/ca.crt certs/dev/server.crt
 ```
 
-### 2. Security Monitoring
-```yaml
-# Security Monitoring
-security_monitoring:
-  alerts:
-    - name: "suspicious_activity"
-      triggers:
-        - "Multiple failed logins"
-        - "Unusual access patterns"
-      actions:
-        - "Send alert"
-        - "Log incident"
-    - name: "certificate_issues"
-      triggers:
-        - "Certificate expiration"
-        - "Invalid signatures"
-      actions:
-        - "Send alert"
-        - "Log incident"
+Common Solutions:
+- Verify mTLS configuration
+- Check certificate validity
+- Ensure proper authentication headers
+- Monitor authentication logs
+
+### 2. Authorization Issues
+```bash
+# Check authorization logs
+kubectl logs -n spire deployment/spire-server | grep "authorization"
+
+# Verify policy configuration
+kubectl get configmap -n spire spire-server-config -o yaml
+
+# Check workload permissions
+kubectl get serviceaccount -n demo
 ```
 
-## Integration Problems
+Common Solutions:
+- Verify policy configuration
+- Check workload permissions
+- Ensure proper service accounts
+- Monitor authorization logs
 
-### 1. Integration Issues
-```yaml
-# Integration Issues
-integration_issues:
-  api_integration:
-    symptoms:
-      - "API connection failures"
-      - "Timeout errors"
-    solutions:
-      - "Check API endpoints"
-      - "Verify credentials"
-  service_mesh:
-    symptoms:
-      - "mTLS handshake failures"
-      - "Service discovery issues"
-    solutions:
-      - "Check mTLS configuration"
-      - "Verify service registration"
+### 3. Security Policy Violations
+```bash
+# Check security logs
+kubectl logs -n spire deployment/spire-server | grep "security"
+
+# Verify security policies
+kubectl get configmap -n spire security-policies -o yaml
+
+# Check audit logs
+kubectl logs -n spire deployment/spire-server | grep "audit"
 ```
 
-### 2. Integration Testing
-```yaml
-# Integration Testing
-integration_testing:
-  tests:
-    - name: "api_connectivity"
-      command: "test-api-connectivity.sh"
-      expected: "Connection successful"
-    - name: "service_mesh"
-      command: "test-service-mesh.sh"
-      expected: "Mesh operational"
+Common Solutions:
+- Verify security policies
+- Check audit logs
+- Ensure proper configurations
+- Monitor security events
+
+## Performance Issues
+
+### 1. High Latency
+```bash
+# Check server metrics
+kubectl top pod -n spire deployment/spire-server
+
+# View performance logs
+kubectl logs -n spire deployment/spire-server | grep "performance"
+
+# Check resource usage
+kubectl describe pod -n spire deployment/spire-server
 ```
 
-## Recovery Procedures
+Common Solutions:
+- Monitor resource usage
+- Check network latency
+- Verify configuration
+- Optimize performance
 
-### 1. Service Recovery
-```yaml
-# Service Recovery
-service_recovery:
-  steps:
-    - name: "stop_service"
-      command: "systemctl stop workload-identity"
-    - name: "backup_data"
-      command: "backup-workload-identity.sh"
-    - name: "restore_service"
-      command: "systemctl start workload-identity"
+### 2. Resource Exhaustion
+```bash
+# Check resource limits
+kubectl describe pod -n spire deployment/spire-server
+
+# View resource metrics
+kubectl top pod -n spire deployment/spire-server
+
+# Check node resources
+kubectl describe node
 ```
 
-### 2. Data Recovery
-```yaml
-# Data Recovery
-data_recovery:
-  procedures:
-    - name: "database_recovery"
-      steps:
-        - "Stop database"
-        - "Restore from backup"
-        - "Start database"
-    - name: "certificate_recovery"
-      steps:
-        - "Export certificates"
-        - "Restore certificates"
-        - "Verify chain"
+Common Solutions:
+- Adjust resource limits
+- Monitor resource usage
+- Scale resources
+- Optimize configuration
+
+### 3. Connection Issues
+```bash
+# Check network connectivity
+kubectl exec -n spire deployment/spire-server -- ping spire-agent
+
+# View connection logs
+kubectl logs -n spire deployment/spire-server | grep "connection"
+
+# Verify network policies
+kubectl get networkpolicy -n spire
 ```
 
-## Prevention Strategies
+Common Solutions:
+- Verify network policies
+- Check connectivity
+- Monitor connections
+- Optimize networking
 
-### 1. Proactive Monitoring
-```yaml
-# Proactive Monitoring
-proactive_monitoring:
-  metrics:
-    - name: "system_health"
-      frequency: "5 minutes"
-      action: "Alert if unhealthy"
-    - name: "security_events"
-      frequency: "1 minute"
-      action: "Alert if suspicious"
+## Common Commands
+
+### 1. System Status
+```bash
+# Check system status
+kubectl get pods -n spire
+kubectl get services -n spire
+kubectl get configmaps -n spire
+
+# View system logs
+kubectl logs -n spire deployment/spire-server
+kubectl logs -n spire daemonset/spire-agent
+
+# Check system metrics
+kubectl top pod -n spire
 ```
 
-### 2. Maintenance Procedures
-```yaml
-# Maintenance Procedures
-maintenance_procedures:
-  regular:
-    - name: "certificate_rotation"
-      frequency: "30 days"
-      action: "Rotate certificates"
-    - name: "policy_review"
-      frequency: "7 days"
-      action: "Review policies"
+### 2. Certificate Management
+```bash
+# Generate certificates
+./scripts/generate-dev-certs.sh
+
+# Verify certificates
+openssl verify -CAfile certs/dev/ca.crt certs/dev/server.crt
+openssl x509 -in certs/dev/server.crt -text -noout
+
+# Check certificate status
+kubectl get secret -n spire spire-server-cert -o yaml
+kubectl get secret -n spire spire-agent-cert -o yaml
+```
+
+### 3. Security Verification
+```bash
+# Run security checks
+./scripts/verify-security.sh
+
+# Check security policies
+kubectl get configmap -n spire security-policies -o yaml
+
+# View security logs
+kubectl logs -n spire deployment/spire-server | grep "security"
 ```
 
 ## Conclusion
 
-This guide provides comprehensive troubleshooting instructions for the workload identity system. Remember to:
-- Follow diagnostic procedures systematically
-- Document all troubleshooting steps
-- Implement preventive measures
-- Keep recovery procedures updated
-- Maintain monitoring and alerting
-
-For additional information, refer to:
+This troubleshooting guide provides solutions for common issues in the workload identity system. For additional information, refer to:
 - [Architecture Guide](architecture_guide.md)
 - [Security Best Practices](security_best_practices.md)
+- [Developer Guide](developer_guide.md)
 - [Deployment Guide](deployment_guide.md) 
