@@ -1,6 +1,13 @@
 # SPIRE Agent DaemonSet
 # This file defines the Kubernetes DaemonSet for the SPIRE agent.
 # The SPIRE agent runs on every node in the cluster and provides workload identity to pods.
+#
+# Cloud Provider Integration:
+# - GCP: Use GKE Workload Identity. Ensure service account has 'iam.gke.io/gcp-service-account' annotation.
+# - AWS: Use IRSA. Ensure service account has 'eks.amazonaws.com/role-arn' annotation. Mount AWS token file if needed.
+# - Azure: Use Azure AD Workload Identity. Ensure service account has 'azure.workload.identity/client-id' annotation. Mount Azure token file if needed.
+#
+# The SPIRE agent configuration is mostly cloud-agnostic, but the way tokens are projected and which environment variables are set may differ by provider.
 
 apiVersion: apps/v1
 kind: DaemonSet
@@ -28,6 +35,11 @@ spec:
     spec:
       # Service account for the SPIRE agent
       # This service account must have the necessary RBAC permissions
+      #
+      # Cloud-specific notes:
+      # - GCP: Service account must be annotated for GKE Workload Identity
+      # - AWS: Service account must be annotated for IRSA
+      # - Azure: Service account must be annotated for Azure AD Workload Identity
       serviceAccountName: spire-agent
 
       # Optional improvement: Grace period for pod termination
@@ -62,6 +74,17 @@ spec:
           valueFrom:
             fieldRef:
               fieldPath: spec.nodeName
+        # --- Cloud Provider Example Environment Variables ---
+        # GCP: No extra env vars typically needed for agent
+        # AWS: If using IRSA, you may want to set AWS_WEB_IDENTITY_TOKEN_FILE
+        # - name: AWS_WEB_IDENTITY_TOKEN_FILE
+        #   value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+        # Azure: If using Azure AD Workload Identity, you may want to set AZURE_CLIENT_ID
+        # - name: AZURE_CLIENT_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: azure-workload-identity
+        #       key: client-id
 
         ports:
         # Health check port
@@ -106,6 +129,16 @@ spec:
         - name: kubelet-socket
           mountPath: /var/run/kubernetes
           readOnly: true
+
+        # --- Cloud Provider Example Volume Mounts ---
+        # AWS: Mount the projected token file if needed
+        # - name: aws-web-identity-token
+        #   mountPath: /var/run/secrets/eks.amazonaws.com/serviceaccount
+        #   readOnly: true
+        # Azure: Mount the projected token file if needed
+        # - name: azure-identity-token
+        #   mountPath: /var/run/secrets/azure/tokens
+        #   readOnly: true
 
         # Optional improvement: Startup probe
         # Rationale: Better handling of slow-starting containers
@@ -208,4 +241,26 @@ spec:
       # Sets the filesystem group
       # Required: This setting is mandatory for security
       securityContext:
-        fsGroup: 1000 
+        fsGroup: 1000
+
+      # --- Cloud Provider Example Volumes ---
+      # AWS: Projected token volume for IRSA
+      # - name: aws-web-identity-token
+      #   projected:
+      #     sources:
+      #     - serviceAccountToken:
+      #         audience: "sts.amazonaws.com"
+      #         expirationSeconds: 3600
+      #         path: "token"
+      # Azure: Projected token volume for Azure AD Workload Identity
+      # - name: azure-identity-token
+      #   projected:
+      #     sources:
+      #     - serviceAccountToken:
+      #         audience: "api://AzureADTokenExchange"
+      #         expirationSeconds: 3600
+      #         path: "azure-identity-token"
+      #
+      # GCP: No extra projected token volume typically needed for agent
+      #
+      # ... existing code ... 

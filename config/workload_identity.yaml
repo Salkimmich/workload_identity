@@ -1,43 +1,100 @@
 # Workload Identity Configuration
 # This file defines the core settings for workload identity management
 # Note: This is a basic configuration file. For production use, additional security settings should be configured.
+#
+# Cloud Provider Integration:
+# - GCP: Use provider: "gcp" and configure GCP Workload Identity Federation
+# - AWS: Use provider: "aws" and configure IAM Roles for Service Accounts (IRSA)
+# - Azure: Use provider: "azure" and configure Azure AD Workload Identity
 
-apiVersion: security.workload/v1
-kind: WorkloadIdentityConfig
+apiVersion: security.workload/v1  # Required: API version for workload identity
+kind: WorkloadIdentityConfig     # Required: Resource type
 
 # Basic identity settings
+# Required: Core identity configuration
 identity:
-  # The unique identifier for this workload
+  # Required: Unique identifier for this workload
+  # Must be globally unique within your organization
   workloadId: "example-workload-001"
   
-  # The type of identity provider to use
-  provider: "kubernetes"  # Options: kubernetes, aws, azure, gcp
+  # Required: Identity provider type
+  # Options: kubernetes, aws, azure, gcp
+  # Choose based on your deployment environment
+  # --- GCP Example ---
+  # provider: "gcp"
+  # --- AWS Example ---
+  # provider: "aws"
+  # --- Azure Example ---
+  # provider: "azure"
+  provider: "kubernetes"
   
-  # Token lifetime in seconds (default: 3600)
+  # Required: Token lifetime in seconds
+  # Default: 3600 (1 hour)
+  # Consider security implications when adjusting
   tokenLifetime: 3600
 
 # Authentication settings
+# Required: Security configuration for workload authentication
 authentication:
-  # Enable mTLS for service-to-service communication
+  # Required: mTLS configuration
   mtls:
-    enabled: true
-    # Certificate rotation period in hours
+    enabled: true  # Required: Enable mTLS for secure communication
+    # Required: Certificate rotation period
+    # Default: 24 hours
+    # Adjust based on your security requirements
     certRotationPeriod: 24
 
 # Authorization settings
+# Required: Access control configuration
 authorization:
-  # Default role for this workload
+  # Required: Default role for this workload
+  # Must match a role defined in your RBAC configuration
   defaultRole: "service-role"
   
-  # List of allowed service accounts
+  # Required: List of allowed service accounts
+  # Must include all service accounts that need access
   allowedServiceAccounts:
-    - "default"
-    - "system:serviceaccount:default:example-sa"
+    - "default"  # Required: Default service account
+    - "system:serviceaccount:default:example-sa"  # Required: Custom service account
 
 # Audit logging configuration
+# Required: Security audit settings
 audit:
-  enabled: true
-  # Log level: debug, info, warn, error
+  enabled: true  # Required: Enable audit logging
+  # Required: Log level
+  # Options: debug, info, warn, error
+  # Production: Use at least "info" level
   level: "info"
-  # Output format: json, text
-  format: "json" 
+  # Required: Log format
+  # Options: json, text
+  # Production: Use "json" for better parsing
+  format: "json"
+
+# Cloud Provider Notes:
+# --- GCP ---
+# - Requires Workload Identity Pool and GCP service account mapping
+# - Service account annotation: iam.gke.io/gcp-service-account
+# --- AWS ---
+# - Requires OIDC provider setup and IAM role mapping
+# - Service account annotation: eks.amazonaws.com/role-arn
+# --- Azure ---
+# - Requires Azure AD Workload Identity or Managed Identities
+# - Service account annotation: azure.workload.identity/client-id
+
+# Production Environment Recommendations:
+# Required:
+# - Implement strict token lifetime
+# - Enable mTLS for all communications
+# - Configure proper certificate rotation
+# - Set up comprehensive audit logging
+# - Define granular service account permissions
+#
+# Optional but Recommended:
+# - Add labels for resource management
+# - Include annotations for documentation
+# - Configure backup and recovery
+# - Set up monitoring and alerting
+# - Implement rate limiting
+# - Add IP-based restrictions
+# - Configure session management
+# - Set up automated certificate rotation 

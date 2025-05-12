@@ -97,9 +97,8 @@ metadata:
   namespace: demo
 spec:
   template:
-    metadata:
-      annotations:
-        spire-workload: "true"
+    annotations:
+      spire-workload: "true"
     spec:
       serviceAccountName: frontend
       containers:
@@ -179,9 +178,71 @@ spec:
 
 ## Cloud Provider Integration
 
-### 1. AWS Integration
+### Overview
+The workload identity system supports integration with major cloud providers: **AWS**, **Azure**, and **GCP**. The high-level workflow (workload receives a short-lived identity token, SPIRE agent verifies it, etc.) is the same, but setup and configuration differ by provider.
+
+#### Key Differences
+| Provider | Service Account Annotation | IAM/Role Mapping | Token Path | Additional Setup |
+|----------|---------------------------|------------------|------------|-----------------|
+| GCP      | `iam.gke.io/gcp-service-account` | GCP Service Account | `/var/run/secrets/tokens/` | Workload Identity Pool, Federation |
+| AWS      | `eks.amazonaws.com/role-arn`     | IAM Role for Service Account (IRSA) | `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` | OIDC Provider, IAM Role |
+| Azure    | `azure.workload.identity/client-id` | Azure AD Application Client ID | `/var/run/secrets/azure/tokens/azure-identity-token` | Azure AD Workload Identity, Federated Credentials |
+
+> **Note:** The SPIRE-based identity flow is conceptually similar across providers, but the details of token issuance, required annotations, and trust establishment are cloud-specific.
+
+### 1. GCP Integration
+- **Required:** Annotate the Kubernetes ServiceAccount with `iam.gke.io/gcp-service-account`.
+- **Setup:** Configure a GCP Workload Identity Pool and map the Kubernetes ServiceAccount (KSA) to a Google Service Account (GSA).
+- **Token Path:** `/var/run/secrets/tokens/GOOGLE-APPLICATION-CREDENTIALS` (or as configured).
+- **Best Practices:**
+  - Use least-privilege GSA permissions.
+  - Rotate GSA keys regularly.
+  - Monitor GCP IAM audit logs for access.
+- **Troubleshooting:**
+  - Ensure the GSA has the correct IAM roles.
+  - Check that the KSA is properly annotated and mapped.
+
+**Example:**
 ```yaml
-# AWS Configuration
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: gcp-workload
+  namespace: demo
+  annotations:
+    iam.gke.io/gcp-service-account: "workload-identity@project.iam.gserviceaccount.com"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gcp-workload
+  namespace: demo
+spec:
+  template:
+    spec:
+      serviceAccountName: gcp-workload
+      containers:
+      - name: gcp-workload
+        image: gcp-workload:latest
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/var/run/secrets/tokens/GOOGLE-APPLICATION-CREDENTIALS"
+```
+
+### 2. AWS Integration
+- **Required:** Annotate the ServiceAccount with `eks.amazonaws.com/role-arn`.
+- **Setup:** Create an OIDC provider in AWS, map the KSA to an IAM Role (IRSA), and ensure the IAM Role has the correct trust policy.
+- **Token Path:** `/var/run/secrets/eks.amazonaws.com/serviceaccount/token`
+- **Best Practices:**
+  - Use least-privilege IAM roles.
+  - Rotate IAM credentials regularly.
+  - Monitor AWS CloudTrail for access.
+- **Troubleshooting:**
+  - Ensure the IAM Role trust policy allows the OIDC provider and KSA.
+  - Check that the ServiceAccount is properly annotated.
+
+**Example:**
+```yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
@@ -209,16 +270,27 @@ spec:
           value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
 ```
 
-### 2. Azure Integration
+### 3. Azure Integration
+- **Required:** Annotate the ServiceAccount with `azure.workload.identity/client-id`.
+- **Setup:** Register an Azure AD Application, configure federated credentials, and map the KSA to the Azure AD Application Client ID.
+- **Token Path:** `/var/run/secrets/azure/tokens/azure-identity-token`
+- **Best Practices:**
+  - Use least-privilege Azure AD app permissions.
+  - Rotate Azure AD app secrets regularly.
+  - Monitor Azure AD sign-in logs for access.
+- **Troubleshooting:**
+  - Ensure the Azure AD Application has the correct permissions.
+  - Check that the ServiceAccount is properly annotated and mapped.
+
+**Example:**
 ```yaml
-# Azure Configuration
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: azure-workload
   namespace: demo
   annotations:
-    azure.workload.identity/client-id: "client-id"
+    azure.workload.identity/client-id: "<azure-ad-app-client-id>"
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -234,10 +306,21 @@ spec:
         image: azure-workload:latest
         env:
         - name: AZURE_CLIENT_ID
-          value: "client-id"
+          value: "<azure-ad-app-client-id>"
         - name: AZURE_TENANT_ID
-          value: "tenant-id"
+          value: "<azure-ad-tenant-id>"
 ```
+
+### Advanced Notes
+- For multi-cloud environments, ensure each provider's identity mapping and trust configuration is kept up to date.
+- SPIRE agent/server manifests may require provider-specific projected token volumes or environment variables (see inline comments in those files).
+- Always test identity issuance and validation end-to-end after any configuration change.
+
+### Further Reading
+- [AWS IRSA Documentation](https://docs.aws.amazon.com/eks/latest/userguide/iam-roles-for-service-accounts.html)
+- [GCP Workload Identity Federation](https://cloud.google.com/kubernetes-engine/docs/how-to/workload-identity)
+- [Azure Workload Identity](https://azure.github.io/azure-workload-identity/docs/)
+- [SPIRE Documentation](https://spiffe.io/spire/docs/latest/)
 
 ## CI/CD Integration
 
@@ -347,7 +430,7 @@ data:
 
 ## Conclusion
 
-This integration guide provides instructions for integrating the workload identity system with various platforms and services. For additional information, refer to:
+This integration guide provides instructions for integrating the workload identity system with various platforms and services, including cloud-specific details for AWS, Azure, and GCP. For additional information, refer to:
 - [Architecture Guide](architecture_guide.md)
 - [Security Best Practices](security_best_practices.md)
 - [Developer Guide](developer_guide.md)

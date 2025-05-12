@@ -1,6 +1,13 @@
 # SPIRE Server Deployment
 # This file defines the Kubernetes deployment for the SPIRE server.
 # The SPIRE server is the central authority for workload identity in the cluster.
+#
+# Cloud Provider Integration:
+# - GCP: Use GKE Workload Identity. Ensure service account has 'iam.gke.io/gcp-service-account' annotation.
+# - AWS: Use IRSA. Ensure service account has 'eks.amazonaws.com/role-arn' annotation. Mount AWS token file if needed.
+# - Azure: Use Azure AD Workload Identity. Ensure service account has 'azure.workload.identity/client-id' annotation. Mount Azure token file if needed.
+#
+# The SPIRE server configuration is mostly cloud-agnostic, but the way tokens are projected and which environment variables are set may differ by provider.
 
 apiVersion: apps/v1
 kind: Deployment
@@ -41,6 +48,11 @@ spec:
     spec:
       # Service account for the SPIRE server
       # This service account must have the necessary RBAC permissions
+      #
+      # Cloud-specific notes:
+      # - GCP: Service account must be annotated for GKE Workload Identity
+      # - AWS: Service account must be annotated for IRSA
+      # - Azure: Service account must be annotated for Azure AD Workload Identity
       serviceAccountName: spire-server
 
       # Optional improvement: Grace period for pod termination
@@ -169,6 +181,18 @@ spec:
             drop:
             - ALL
 
+        # --- Cloud Provider Example Environment Variables ---
+        # GCP: No extra env vars typically needed for server
+        # AWS: If using IRSA, you may want to set AWS_WEB_IDENTITY_TOKEN_FILE
+        # - name: AWS_WEB_IDENTITY_TOKEN_FILE
+        #   value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+        # Azure: If using Azure AD Workload Identity, you may want to set AZURE_CLIENT_ID
+        # - name: AZURE_CLIENT_ID
+        #   valueFrom:
+        #     secretKeyRef:
+        #       name: azure-workload-identity
+        #       key: client-id
+
       volumes:
       # Configuration volume from ConfigMap
       - name: spire-config
@@ -191,6 +215,26 @@ spec:
       - name: spire-sockets
         emptyDir: {}
 
+      # --- Cloud Provider Example Volumes ---
+      # AWS: Projected token volume for IRSA
+      # - name: aws-web-identity-token
+      #   projected:
+      #     sources:
+      #     - serviceAccountToken:
+      #         audience: "sts.amazonaws.com"
+      #         expirationSeconds: 3600
+      #         path: "token"
+      # Azure: Projected token volume for Azure AD Workload Identity
+      # - name: azure-identity-token
+      #   projected:
+      #     sources:
+      #     - serviceAccountToken:
+      #         audience: "api://AzureADTokenExchange"
+      #         expirationSeconds: 3600
+      #         path: "azure-identity-token"
+      #
+      # GCP: No extra projected token volume typically needed for server
+      #
       # Pod security context
       # Sets the filesystem group
       # Required: This setting is mandatory for security

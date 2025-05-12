@@ -5,39 +5,58 @@
 apiVersion: networking.k8s.io/v1
 kind: NetworkPolicy
 metadata:
+  # Required: Unique name for the network policy
   name: workload-identity-network-policy
+  # Required: Namespace where the policy will be applied
   namespace: default
 spec:
+  # Required: Select which pods this policy applies to
   podSelector:
     matchLabels:
+      # Required: Must match the labels on your workload pods
       app: workload-identity
+  # Required: Define which types of traffic to control
   policyTypes:
-  - Ingress
-  - Egress
+  - Ingress  # Required: Control incoming traffic
+  - Egress   # Required: Control outgoing traffic
   ingress:
   - from:
     - namespaceSelector:
+        # Required: Define which namespaces can send traffic
         matchLabels:
           name: default
     ports:
+    # Required: Define allowed incoming ports
     - protocol: TCP
-      port: 443
+      port: 443  # Required: HTTPS traffic
     - protocol: TCP
-      port: 80
+      port: 80   # Optional: HTTP traffic (consider removing in production)
   egress:
   - to:
     - namespaceSelector:
+        # Required: Define which namespaces can receive traffic
         matchLabels:
           name: default
     ports:
+    # Required: Define allowed outgoing ports
     - protocol: TCP
-      port: 443
+      port: 443  # Required: HTTPS traffic
     - protocol: TCP
-      port: 80
+      port: 80   # Optional: HTTP traffic (consider removing in production)
 
-# Note: This is a basic network policy. Production environments should:
+# Production Environment Recommendations:
+# Required:
 # - Define more specific pod selectors
 # - Add IP-based restrictions
 # - Include DNS policies
 # - Add more granular port restrictions
-# - Include protocol-specific rules 
+# - Include protocol-specific rules
+#
+# Optional but Recommended:
+# - Add labels for better resource management
+# - Include annotations for documentation
+# - Add CIDR-based restrictions
+# - Implement service mesh policies
+# - Add network security groups
+# - Configure TLS termination
+# - Add rate limiting rules 

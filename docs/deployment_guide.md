@@ -153,188 +153,115 @@ kubectl apply -f infrastructure/kubernetes/spire/agent.yaml
 
 ## Cloud Provider Integration
 
-### 1. AWS Integration
-```yaml
-# aws-config.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: aws-config
-  namespace: spire
-data:
-  aws.conf: |
-    aws {
-      region = "us-west-2"
-      role_arn = "arn:aws:iam::123456789012:role/spire-role"
-      session_duration = 3600
-    }
-```
+### Overview
+The workload identity system supports integration with AWS, Azure, and GCP. The high-level workflow is the same (workload receives a short-lived identity token, SPIRE agent verifies it, etc.), but the setup and required configuration differ between providers.
 
-### 2. Azure Integration
+#### Key Differences
+| Provider | Service Account Annotation | IAM/Role Mapping | Token Path | Additional Setup |
+|----------|---------------------------|------------------|------------|-----------------|
+| GCP      | `iam.gke.io/gcp-service-account` | GCP Service Account | `/var/run/secrets/tokens/` | Workload Identity Pool, Federation |
+| AWS      | `eks.amazonaws.com/role-arn`     | IAM Role for Service Account (IRSA) | `/var/run/secrets/eks.amazonaws.com/serviceaccount/token` | OIDC Provider, IAM Role |
+| Azure    | `azure.workload.identity/client-id` | Azure AD Application Client ID | `/var/run/secrets/azure/tokens/azure-identity-token` | Azure AD Workload Identity, Federated Credentials |
+
+> **Note:** The SPIRE-based identity flow is conceptually similar across providers, but the details of token issuance, required annotations, and trust establishment are cloud-specific.
+
+### 1. GCP Integration
 ```yaml
-# azure-config.yaml
 apiVersion: v1
-kind: ConfigMap
+kind: ServiceAccount
 metadata:
-  name: azure-config
-  namespace: spire
-data:
-  azure.conf: |
-    azure {
-      tenant_id = "your-tenant-id"
-      subscription_id = "your-subscription-id"
-      resource_group = "your-resource-group"
-    }
+  name: gcp-workload
+  namespace: demo
+  annotations:
+    iam.gke.io/gcp-service-account: "workload-identity@project.iam.gserviceaccount.com" # Required for GCP
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: gcp-workload
+  namespace: demo
+spec:
+  template:
+    spec:
+      serviceAccountName: gcp-workload
+      containers:
+      - name: gcp-workload
+        image: gcp-workload:latest
+        env:
+        - name: GOOGLE_APPLICATION_CREDENTIALS
+          value: "/var/run/secrets/tokens/GOOGLE-APPLICATION-CREDENTIALS"
 ```
+- **Required:** `iam.gke.io/gcp-service-account` annotation
+- **Setup:** Configure GCP Workload Identity Pool and map KSA to GSA
+
+### 2. AWS Integration
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: aws-workload
+  namespace: demo
+  annotations:
+    eks.amazonaws.com/role-arn: "arn:aws:iam::123456789012:role/workload-role" # Required for AWS
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: aws-workload
+  namespace: demo
+spec:
+  template:
+    spec:
+      serviceAccountName: aws-workload
+      containers:
+      - name: aws-workload
+        image: aws-workload:latest
+        env:
+        - name: AWS_ROLE_ARN
+          value: "arn:aws:iam::123456789012:role/workload-role"
+        - name: AWS_WEB_IDENTITY_TOKEN_FILE
+          value: "/var/run/secrets/eks.amazonaws.com/serviceaccount/token"
+```
+- **Required:** `eks.amazonaws.com/role-arn` annotation
+- **Setup:** Create OIDC provider in AWS, map KSA to IAM Role
+
+### 3. Azure Integration
+```yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: azure-workload
+  namespace: demo
+  annotations:
+    azure.workload.identity/client-id: "<azure-ad-app-client-id>" # Required for Azure
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: azure-workload
+  namespace: demo
+spec:
+  template:
+    spec:
+      serviceAccountName: azure-workload
+      containers:
+      - name: azure-workload
+        image: azure-workload:latest
+        env:
+        - name: AZURE_CLIENT_ID
+          value: "<azure-ad-app-client-id>"
+        - name: AZURE_TENANT_ID
+          value: "<azure-ad-tenant-id>"
+```
+- **Required:** `azure.workload.identity/client-id` annotation
+- **Setup:** Register Azure AD Application, configure federated credentials
+
+### Implementation Notes
+- **Required fields** are marked in the YAML and comments above.
+- **Optional fields** can be omitted or customized as needed.
+- Always refer to your cloud provider's documentation for the latest requirements and best practices.
 
 ## Security Configuration
 
 ### 1. TLS Configuration
-```yaml
-# tls-config.yaml
-apiVersion: v1
-kind: Secret
-metadata:
-  name: spire-tls
-  namespace: spire
-type: kubernetes.io/tls
-data:
-  tls.crt: <base64-encoded-cert>
-  tls.key: <base64-encoded-key>
-  ca.crt: <base64-encoded-ca>
 ```
-
-### 2. Network Policies
-```yaml
-# network-policies.yaml
-apiVersion: networking.k8s.io/v1
-kind: NetworkPolicy
-metadata:
-  name: spire-server
-  namespace: spire
-spec:
-  podSelector:
-    matchLabels:
-      app: spire-server
-  policyTypes:
-  - Ingress
-  - Egress
-  ingress:
-  - from:
-    - namespaceSelector:
-        matchLabels:
-          name: spire
-    ports:
-    - protocol: TCP
-      port: 8081
-```
-
-## Monitoring Setup
-
-### 1. Prometheus Configuration
-```yaml
-# prometheus-config.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: prometheus-config
-  namespace: monitoring
-data:
-  prometheus.yml: |
-    global:
-      scrape_interval: 15s
-    scrape_configs:
-      - job_name: 'spire'
-        static_configs:
-          - targets: ['spire-server:8082']
-```
-
-### 2. Grafana Dashboards
-```yaml
-# grafana-dashboard.yaml
-apiVersion: v1
-kind: ConfigMap
-metadata:
-  name: spire-dashboard
-  namespace: monitoring
-data:
-  dashboard.json: |
-    {
-      "dashboard": {
-        "title": "SPIRE Metrics",
-        "panels": [
-          {
-            "title": "Certificate Operations",
-            "type": "graph",
-            "datasource": "Prometheus",
-            "targets": [
-              {
-                "expr": "rate(spire_certificate_operations_total[5m])"
-              }
-            ]
-          }
-        ]
-      }
-    }
-```
-
-## Verification
-
-### 1. Check Deployment
-```bash
-# Verify SPIRE components
-kubectl get pods -n spire
-
-# Check SPIRE server logs
-kubectl logs -n spire -l app=spire-server
-
-# Verify agent registration
-kubectl exec -n spire -it spire-server-0 -- spire-server agent list
-```
-
-### 2. Test Workload Identity
-```bash
-# Deploy test workload
-kubectl apply -f examples/workloads/test-workload.yaml
-
-# Verify identity
-kubectl exec -n demo -it test-workload -- spire-agent api fetch x509
-```
-
-## Troubleshooting
-
-### Common Issues
-1. Certificate Issues
-   ```bash
-   # Regenerate certificates
-   make regenerate-certs
-   
-   # Verify certificate chain
-   make verify-certs
-   ```
-
-2. Kubernetes Issues
-   ```bash
-   # Check cluster status
-   make check-cluster
-   
-   # Reset development cluster
-   make reset-cluster
-   ```
-
-3. Security Issues
-   ```bash
-   # Run security diagnostics
-   make security-diagnostics
-   
-   # Verify security configuration
-   make verify-security
-   ```
-
-## Conclusion
-
-This guide provides comprehensive deployment instructions for the workload identity system. For additional information, refer to:
-- [Architecture Guide](architecture_guide.md)
-- [Security Best Practices](security_best_practices.md)
-- [Developer Guide](developer_guide.md)
-- [API Reference](api_reference.md) 
