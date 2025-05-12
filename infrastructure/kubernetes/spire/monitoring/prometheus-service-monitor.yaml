@@ -1,0 +1,229 @@
+# SPIRE Prometheus Service Monitor
+# This file defines the Prometheus service monitor for SPIRE components,
+# enabling metrics collection and monitoring.
+#
+# Security Considerations:
+# 1. Metrics endpoints must be properly secured with TLS
+# 2. Client certificates must be properly managed
+# 3. Alert rules must be properly configured
+# 4. Metrics collection must be properly secured
+# 5. Alert thresholds must be properly set
+# 6. Alert notifications must be properly configured
+# 7. Metrics retention must be properly configured
+# 8. Access control must be properly configured
+# 9. Monitoring must be properly secured
+# 10. Logging must be properly configured
+
+# Required: ServiceMonitor for SPIRE server
+# Best Practice: Configure separate monitors for server and agent
+# Security Note: Server metrics are critical for monitoring
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: spire-server
+  namespace: monitoring
+  labels:
+    app: spire-server
+    release: prometheus
+spec:
+  # Required: Must match the labels of the SPIRE server service
+  # Best Practice: Use consistent labeling strategy
+  # Security Note: Labels must be properly managed
+  selector:
+    matchLabels:
+      app: spire-server
+  # Required: Must specify the namespace where SPIRE server is running
+  # Best Practice: Use dedicated monitoring namespace
+  # Security Note: Namespace must be properly secured
+  namespaceSelector:
+    matchNames:
+      - spire
+  endpoints:
+  # Required: At least one endpoint must be specified
+  # Best Practice: Configure multiple endpoints for redundancy
+  # Security Note: Endpoints must be properly secured
+  - port: metrics
+    # Optional: Defaults to 30s if not specified
+    # Best Practice: 15s for high-security environments, 30s for standard
+    # Security Note: More frequent collection reduces risk
+    interval: 15s
+    # Required: Must match the metrics endpoint path
+    # Best Practice: Use standard /metrics path
+    # Security Note: Path must be properly secured
+    path: /metrics
+    # Required: Must match the scheme used by SPIRE server
+    # Best Practice: Always use HTTPS
+    # Security Note: HTTPS is required for security
+    scheme: https
+    # Required: TLS configuration for secure metrics collection
+    # Best Practice: Use proper certificate management
+    # Security Note: TLS is critical for security
+    tlsConfig:
+      # Required: Path to CA certificate
+      # Best Practice: Use dedicated CA for monitoring
+      # Security Note: CA must be properly secured
+      caFile: /etc/prometheus/secrets/spire-ca/ca.crt
+      # Required: Path to client certificate
+      # Best Practice: Use dedicated client certificates
+      # Security Note: Certificates must be properly secured
+      certFile: /etc/prometheus/secrets/spire-client/cert.crt
+      # Required: Path to client key
+      # Best Practice: Use dedicated client keys
+      # Security Note: Keys must be properly secured
+      keyFile: /etc/prometheus/secrets/spire-client/cert.key
+---
+# Required: ServiceMonitor for SPIRE agent
+# Best Practice: Configure separate monitors for server and agent
+# Security Note: Agent metrics are critical for monitoring
+apiVersion: monitoring.coreos.com/v1
+kind: ServiceMonitor
+metadata:
+  name: spire-agent
+  namespace: monitoring
+  labels:
+    app: spire-agent
+    release: prometheus
+spec:
+  # Required: Must match the labels of the SPIRE agent service
+  # Best Practice: Use consistent labeling strategy
+  # Security Note: Labels must be properly managed
+  selector:
+    matchLabels:
+      app: spire-agent
+  # Required: Must specify the namespace where SPIRE agent is running
+  # Best Practice: Use dedicated monitoring namespace
+  # Security Note: Namespace must be properly secured
+  namespaceSelector:
+    matchNames:
+      - spire
+  endpoints:
+  # Required: At least one endpoint must be specified
+  # Best Practice: Configure multiple endpoints for redundancy
+  # Security Note: Endpoints must be properly secured
+  - port: metrics
+    # Optional: Defaults to 30s if not specified
+    # Best Practice: 15s for high-security environments, 30s for standard
+    # Security Note: More frequent collection reduces risk
+    interval: 15s
+    # Required: Must match the metrics endpoint path
+    # Best Practice: Use standard /metrics path
+    # Security Note: Path must be properly secured
+    path: /metrics
+    # Required: Must match the scheme used by SPIRE agent
+    # Best Practice: Always use HTTPS
+    # Security Note: HTTPS is required for security
+    scheme: https
+    # Required: TLS configuration for secure metrics collection
+    # Best Practice: Use proper certificate management
+    # Security Note: TLS is critical for security
+    tlsConfig:
+      # Required: Path to CA certificate
+      # Best Practice: Use dedicated CA for monitoring
+      # Security Note: CA must be properly secured
+      caFile: /etc/prometheus/secrets/spire-ca/ca.crt
+      # Required: Path to client certificate
+      # Best Practice: Use dedicated client certificates
+      # Security Note: Certificates must be properly secured
+      certFile: /etc/prometheus/secrets/spire-client/cert.crt
+      # Required: Path to client key
+      # Best Practice: Use dedicated client keys
+      # Security Note: Keys must be properly secured
+      keyFile: /etc/prometheus/secrets/spire-client/cert.key
+---
+# Optional: Prometheus rules for SPIRE alerts
+# Best Practice: Configure comprehensive alert rules
+# Security Note: Alerts must be properly configured
+apiVersion: monitoring.coreos.com/v1
+kind: PrometheusRule
+metadata:
+  name: spire-alerts
+  namespace: monitoring
+  labels:
+    app: spire
+    release: prometheus
+spec:
+  groups:
+  - name: spire
+    rules:
+    # Required: At least one alert rule must be specified
+    # Best Practice: Configure alerts for all critical metrics
+    # Security Note: Alerts must be properly configured
+    # Server alerts
+    - alert: SpireServerDown
+      # Required: PromQL expression for the alert
+      # Best Practice: Use reliable metrics
+      # Security Note: False positives must be minimized
+      expr: up{job="spire-server"} == 0
+      # Required: Duration for which the condition must be true
+      # Best Practice: 5m for high-security environments, 15m for standard
+      # Security Note: Must be long enough to avoid false positives
+      for: 5m
+      # Required: Alert severity level
+      # Best Practice: Use appropriate severity levels
+      # Security Note: Critical alerts must be properly handled
+      labels:
+        severity: critical
+      # Required: Alert description
+      # Best Practice: Provide clear and actionable descriptions
+      # Security Note: Descriptions must be properly formatted
+      annotations:
+        summary: "SPIRE server is down"
+        description: "SPIRE server has been down for more than 5 minutes"
+    
+    - alert: SpireServerHighLatency
+      # Best Practice: Use appropriate thresholds
+      # Security Note: Thresholds must be properly set
+      expr: histogram_quantile(0.95, rate(spire_server_api_latency_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "SPIRE server high latency"
+        description: "SPIRE server 95th percentile latency is above 1 second"
+    
+    # Agent alerts
+    - alert: SpireAgentDown
+      # Best Practice: Use reliable metrics
+      # Security Note: False positives must be minimized
+      expr: up{job="spire-agent"} == 0
+      for: 5m
+      labels:
+        severity: critical
+      annotations:
+        summary: "SPIRE agent is down"
+        description: "SPIRE agent has been down for more than 5 minutes"
+    
+    - alert: SpireAgentHighLatency
+      # Best Practice: Use appropriate thresholds
+      # Security Note: Thresholds must be properly set
+      expr: histogram_quantile(0.95, rate(spire_agent_api_latency_seconds_bucket[5m])) > 1
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "SPIRE agent high latency"
+        description: "SPIRE agent 95th percentile latency is above 1 second"
+    
+    # Certificate alerts
+    - alert: SpireCertificateExpiring
+      # Best Practice: Alert well before expiration
+      # Security Note: Certificate expiration must be prevented
+      expr: spire_server_certificate_expiry_seconds < 86400
+      for: 1h
+      labels:
+        severity: warning
+      annotations:
+        summary: "SPIRE certificate expiring soon"
+        description: "SPIRE certificate will expire in less than 24 hours"
+    
+    # Federation alerts
+    - alert: SpireFederationError
+      # Best Practice: Alert on any federation errors
+      # Security Note: Federation errors must be addressed
+      expr: rate(spire_server_federation_errors_total[5m]) > 0
+      for: 5m
+      labels:
+        severity: warning
+      annotations:
+        summary: "SPIRE federation errors"
+        description: "SPIRE federation is experiencing errors" 

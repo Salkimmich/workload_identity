@@ -13,6 +13,7 @@ This document provides a detailed overview of the Workload Identity system archi
 8. [Zero Trust Implementation](#zero-trust-implementation)
 9. [Security Hardening](#security-hardening)
 10. [Observability and Audit](#observability-and-audit)
+11. [Federation Configuration](#federation-configuration)
 
 ## System Overview
 
@@ -240,6 +241,23 @@ service_mesh_integration:
     bundle: "spire-bundle"
 ```
 
+### 3. Federation Integration
+```yaml
+# Example Federation Integration Configuration
+federation_integration:
+  trust_domains:
+    - name: "spiffe://example.org"
+      bundle: "spire-bundle"
+      endpoints:
+        - "https://spire-server.example.org"
+  bundle_management:
+    automated: true
+    version_control: true
+  authentication:
+    method: "mtls"
+    certificate_authority: "spire-ca"
+```
+
 ## High Availability
 
 ### 1. SPIRE Server HA
@@ -261,18 +279,26 @@ high_availability:
       retention: 7d
 ```
 
-### 2. SPIRE Agent HA
+### 2. Federation HA
 ```yaml
-# Example SPIRE Agent HA Configuration
-high_availability:
-  agent:
-    updateStrategy: RollingUpdate
-    maxUnavailable: 1
-    healthCheck:
-      initialDelay: 5s
-      period: 10s
-      timeout: 3s
-      failureThreshold: 3
+# Example Federation HA Configuration
+federation_high_availability:
+  trust_domains:
+    replicas: 3
+    strategy:
+      type: RollingUpdate
+      rollingUpdate:
+        maxSurge: 1
+        maxUnavailable: 0
+  bundle_management:
+    replicas: 3
+    storage:
+      type: "persistent"
+      backup: true
+  endpoints:
+    load_balancing: true
+    health_checks: true
+    failover: true
 ```
 
 ## Scaling Considerations
@@ -398,6 +424,74 @@ audit_logging:
     - "identity.revoked"
     - "access.granted"
     - "access.denied"
+```
+
+## Federation Configuration
+
+### 1. Trust Domain Models
+```yaml
+# Example Trust Domain Configuration
+trust_domain:
+  model: "hierarchical"
+  root_domain: "spiffe://example.org"
+  child_domains:
+    - "spiffe://cluster1.example.org"
+    - "spiffe://cluster2.example.org"
+  bundle_management:
+    automated: true
+    version_control: true
+    distribution: "centralized"
+```
+
+### 2. Bundle Management
+```yaml
+# Example Bundle Management Configuration
+bundle_management:
+  automated:
+    enabled: true
+    interval: "1h"
+    verification: true
+  version_control:
+    enabled: true
+    retention: "30d"
+  distribution:
+    method: "centralized"
+    endpoints:
+      - "https://bundle.example.org"
+    health_checks: true
+```
+
+### 3. Endpoint Configuration
+```yaml
+# Example Endpoint Configuration
+endpoint_configuration:
+  load_balancing:
+    enabled: true
+    method: "round_robin"
+    health_checks: true
+  failover:
+    enabled: true
+    primary: "spire-server-primary"
+    secondary: "spire-server-secondary"
+  security:
+    mtls: true
+    cipher_suites: ["TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384"]
+```
+
+### 4. Authentication Methods
+```yaml
+# Example Authentication Configuration
+authentication:
+  methods:
+    - type: "mtls"
+      enabled: true
+      certificate_authority: "spire-ca"
+    - type: "oidc"
+      enabled: false
+      provider: "keycloak"
+  rotation:
+    automatic: true
+    interval: "24h"
 ```
 
 ## Conclusion

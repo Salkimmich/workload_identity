@@ -1,0 +1,206 @@
+# SPIRE Federation Configuration
+# This file defines the federation settings for SPIRE, enabling cross-domain trust
+# and trust bundle exchange between different SPIRE deployments.
+#
+# Security Considerations:
+# 1. Trust bundle exchange must be properly secured
+# 2. Federation endpoints must be properly authenticated
+# 3. Cross-domain trust must be carefully configured
+# 4. Monitoring and logging must be properly configured
+# 5. TLS certificates must be properly managed
+# 6. Health checks must be properly configured
+# 7. Validation settings must be properly configured
+# 8. Metrics collection must be properly secured
+# 9. Logging must be properly configured
+# 10. Access control must be properly configured
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-federation
+  namespace: spire
+data:
+  federation.conf: |
+    # Federation configuration
+    # Required: At least one federation component must be configured
+    # Best Practice: Configure all components for complete federation
+    # Security Note: Federation is critical for cross-domain trust
+    federation {
+      # Trust bundle exchange settings
+      # Required if using trust bundle exchange
+      # Best Practice: Enable trust bundle exchange for federation
+      # Security Note: Trust bundles must be properly secured
+      trust_bundle {
+        # How often to exchange trust bundles
+        # Required: Must be less than trust bundle validity period
+        # Best Practice: 1h for high-security environments, 4h for standard
+        # Security Note: More frequent exchanges reduce risk
+        exchange_interval = "1h"
+        
+        # Maximum number of trust bundles to keep
+        # Optional: Defaults to 10 if not specified
+        # Best Practice: Keep this number low to reduce attack surface
+        # Security Note: Higher numbers increase storage requirements
+        max_trust_bundles = 10
+        
+        # Trust bundle validation settings
+        # Optional: Can be omitted if using default validation
+        # Best Practice: Enable all validation checks
+        # Security Note: Validation is critical for security
+        validation {
+          # Whether to validate trust bundle signatures
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always enable signature validation
+          # Security Note: Prevents tampering with trust bundles
+          validate_signatures = true
+          
+          # Whether to check trust bundle expiration
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always check expiration
+          # Security Note: Prevents use of expired trust bundles
+          check_expiration = true
+          
+          # Whether to validate trust bundle chain
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always validate chain
+          # Security Note: Ensures proper trust chain
+          validate_chain = true
+        }
+      }
+      
+      # Federation endpoints
+      # Required if using federation endpoints
+      # Best Practice: Configure multiple endpoints for redundancy
+      # Security Note: Endpoints must be properly secured
+      endpoints {
+        # List of federation endpoints
+        # Required: At least one endpoint must be specified
+        # Format: <trust_domain>:<endpoint>
+        # Best Practice: Use HTTPS endpoints with proper certificates
+        # Security Note: Endpoints must be properly authenticated
+        endpoints = [
+          "example.org:https://spire-server.example.org:8081",
+          "other.org:https://spire-server.other.org:8081"
+        ]
+        
+        # Endpoint validation settings
+        # Optional: Can be omitted if using default validation
+        # Best Practice: Enable all validation checks
+        # Security Note: Validation is critical for security
+        validation {
+          # Whether to validate endpoint TLS certificates
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always validate TLS certificates
+          # Security Note: Prevents man-in-the-middle attacks
+          validate_tls = true
+          
+          # Whether to check endpoint health
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always check health
+          # Security Note: Ensures endpoint availability
+          check_health = true
+          
+          # Health check interval
+          # Optional: Defaults to 5m if not specified
+          # Best Practice: 5m for high-security environments, 15m for standard
+          # Security Note: More frequent checks reduce risk
+          health_check_interval = "5m"
+        }
+      }
+      
+      # Cross-domain trust settings
+      # Required if using cross-domain trust
+      # Best Practice: Configure only necessary trusted domains
+      # Security Note: Trust must be carefully managed
+      cross_domain {
+        # List of trusted domains
+        # Required: At least one trusted domain must be specified
+        # Format: <trust_domain>
+        # Best Practice: Use explicit domain names
+        # Security Note: Trust must be explicitly granted
+        trusted_domains = [
+          "example.org",
+          "other.org"
+        ]
+        
+        # Trust validation settings
+        # Optional: Can be omitted if using default validation
+        # Best Practice: Enable all validation checks
+        # Security Note: Validation is critical for security
+        validation {
+          # Whether to validate domain trust
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always validate trust
+          # Security Note: Ensures proper trust relationships
+          validate_trust = true
+          
+          # Whether to check domain health
+          # Optional: Defaults to true if not specified
+          # Best Practice: Always check health
+          # Security Note: Ensures domain availability
+          check_health = true
+          
+          # Health check interval
+          # Optional: Defaults to 5m if not specified
+          # Best Practice: 5m for high-security environments, 15m for standard
+          # Security Note: More frequent checks reduce risk
+          health_check_interval = "5m"
+        }
+      }
+    }
+    
+    # Federation monitoring
+    # Optional: Entire monitoring section can be omitted if not using federation monitoring
+    # Best Practice: Enable monitoring for production environments
+    # Security Note: Monitoring must be properly secured
+    monitoring {
+      # Metrics collection
+      # Optional: Can be omitted if not collecting metrics
+      # Best Practice: Enable metrics collection
+      # Security Note: Metrics must be properly secured
+      metrics {
+        # Whether to collect federation metrics
+        # Optional: Defaults to true if not specified
+        # Best Practice: Always enable metrics
+        # Security Note: Metrics are critical for monitoring
+        enabled = true
+        
+        # Metrics collection interval
+        # Required if metrics are enabled: Must be less than retention_period
+        # Best Practice: 1m for high-security environments, 5m for standard
+        # Security Note: More frequent collection reduces risk
+        collection_interval = "1m"
+        
+        # Metrics retention period
+        # Required if metrics are enabled: Must be greater than collection_interval
+        # Best Practice: 7d for high-security environments, 30d for standard
+        # Security Note: Longer retention helps with analysis
+        retention_period = "7d"
+      }
+      
+      # Logging settings
+      # Optional: Can be omitted if using default logging
+      # Best Practice: Configure proper logging
+      # Security Note: Logs must be properly secured
+      logging {
+        # Log level for federation events
+        # Optional: Defaults to info if not specified
+        # Options: debug, info, warn, error
+        # Best Practice: Use info for production, debug for troubleshooting
+        # Security Note: Sensitive information may be logged
+        level = "info"
+        
+        # Log format
+        # Optional: Defaults to json if not specified
+        # Options: text, json
+        # Best Practice: Use json for machine processing
+        # Security Note: Format affects log analysis
+        format = "json"
+        
+        # Log file path
+        # Required if logging is enabled: Must be writable by SPIRE process
+        # Best Practice: Use dedicated log directory
+        # Security Note: Logs must be properly secured
+        file = "/var/log/spire/federation.log"
+      }
+    } 

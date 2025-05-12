@@ -1,168 +1,168 @@
 # Known Blindspots in SPIRE Implementation
 
-## Critical Technical Gaps
+## SPIRE Technology Limitations
 
 ### 1. Trust Domain Management
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Limited support for dynamic trust domain updates
 - No built-in mechanism for trust domain migration
+- Basic federation capabilities
+- Limited support for trust domain hierarchy changes
+
+**Our Implementation Gaps**:
 - Manual process for trust domain hierarchy changes
 - No automated validation of trust domain relationships
-
-**Areas Needing Help**:
-- Design patterns for trust domain migration
-- Best practices for trust domain hierarchy management
-- Tools for trust domain relationship validation
-- Documentation of trust domain lifecycle management
+- Limited federation monitoring
+- Basic trust management tools
 
 ### 2. Node Attestation
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic node rotation handling
 - Limited support for custom attestation plugins
+- Basic node identity management
+- Limited attestation plugin ecosystem
+
+**Our Implementation Gaps**:
 - No built-in mechanism for attestation failure recovery
 - Manual process for node identity changes
-
-**Areas Needing Help**:
-- Implementation of robust node rotation strategies
-- Development of custom attestation plugins
-- Design of failure recovery mechanisms
-- Documentation of node identity lifecycle
+- Limited monitoring of attestation failures
+- Basic recovery procedures
 
 ### 3. Workload Attestation
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Limited support for ephemeral workloads
 - Basic pod identity management
+- Limited workload migration support
+- Basic identity lifecycle management
+
+**Our Implementation Gaps**:
 - No built-in mechanism for workload migration
 - Manual process for identity changes
+- Limited monitoring of workload states
+- Basic recovery procedures
 
-**Areas Needing Help**:
-- Implementation of ephemeral workload support
-- Development of workload migration tools
-- Design of identity change management
-- Documentation of workload lifecycle
-
-## Operational Gaps
+## Operational Limitations
 
 ### 1. Monitoring and Alerting
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic metrics collection
+- Limited built-in monitoring
+- Basic health checks
+- Limited performance metrics
+
+**Our Implementation Gaps**:
 - Limited alerting capabilities
 - No built-in performance monitoring
 - Manual process for issue detection
-
-**Areas Needing Help**:
-- Implementation of comprehensive monitoring
-- Development of alerting strategies
-- Design of performance metrics
-- Documentation of monitoring best practices
+- Basic monitoring setup
 
 ### 2. Backup and Recovery
-**Current Limitations**:
+**SPIRE Core Limitations**:
+- Basic backup capabilities
+- Limited recovery options
+- Basic data store backup
+- Limited disaster recovery
+
+**Our Implementation Gaps**:
 - Basic backup procedures
 - Limited recovery options
 - No built-in disaster recovery
 - Manual process for data restoration
 
-**Areas Needing Help**:
-- Implementation of automated backup
-- Development of recovery procedures
-- Design of disaster recovery plans
-- Documentation of backup strategies
-
 ### 3. Security
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic security policies
 - Limited audit capabilities
+- Basic access control
+- Limited security monitoring
+
+**Our Implementation Gaps**:
 - No built-in security monitoring
 - Manual process for security updates
+- Limited security documentation
+- Basic security procedures
 
-**Areas Needing Help**:
-- Implementation of security policies
-- Development of audit procedures
-- Design of security monitoring
-- Documentation of security best practices
-
-## Integration Gaps
+## Integration Limitations
 
 ### 1. Cloud Provider Integration
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic cloud provider support
 - Limited multi-cloud capabilities
+- Basic cloud integration
+- Limited cloud-specific features
+
+**Our Implementation Gaps**:
 - No built-in cloud migration
 - Manual process for cloud changes
-
-**Areas Needing Help**:
-- Implementation of cloud provider support
-- Development of multi-cloud tools
-- Design of cloud migration strategies
-- Documentation of cloud integration
+- Limited multi-cloud support
+- Basic cloud integration
 
 ### 2. Federation
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic federation capabilities
 - Limited trust management
+- Basic bundle management
+- Limited federation features
+
+**Our Implementation Gaps**:
 - No built-in federation monitoring
 - Manual process for federation changes
-
-**Areas Needing Help**:
-- Implementation of federation features
-- Development of trust management tools
-- Design of federation monitoring
-- Documentation of federation best practices
+- Limited federation documentation
+- Basic federation setup
 
 ### 3. Service Mesh Integration
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic service mesh support
 - Limited mesh capabilities
+- Basic mesh integration
+- Limited mesh features
+
+**Our Implementation Gaps**:
 - No built-in mesh monitoring
 - Manual process for mesh changes
-
-**Areas Needing Help**:
-- Implementation of service mesh features
-- Development of mesh management tools
-- Design of mesh monitoring
-- Documentation of mesh integration
+- Limited mesh documentation
+- Basic mesh integration
 
 ## Documentation Gaps
 
 ### 1. Architecture Documentation
-**Current Limitations**:
-- Basic architecture overview
+**SPIRE Core Limitations**:
+- Basic architecture documentation
 - Limited component documentation
+- Basic integration guides
+- Limited best practices
+
+**Our Implementation Gaps**:
 - No built-in architecture validation
 - Manual process for updates
-
-**Areas Needing Help**:
-- Implementation of architecture documentation
-- Development of component guides
-- Design of architecture validation
-- Documentation of best practices
+- Limited component guides
+- Basic architecture documentation
 
 ### 2. Operational Documentation
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic operational guides
 - Limited troubleshooting docs
+- Basic maintenance guides
+- Limited best practices
+
+**Our Implementation Gaps**:
 - No built-in documentation validation
 - Manual process for updates
-
-**Areas Needing Help**:
-- Implementation of operational guides
-- Development of troubleshooting docs
-- Design of documentation validation
-- Documentation of operational best practices
+- Limited troubleshooting docs
+- Basic operational guides
 
 ### 3. Security Documentation
-**Current Limitations**:
+**SPIRE Core Limitations**:
 - Basic security guides
 - Limited security procedures
+- Basic best practices
+- Limited security docs
+
+**Our Implementation Gaps**:
 - No built-in security validation
 - Manual process for updates
-
-**Areas Needing Help**:
-- Implementation of security guides
-- Development of security procedures
-- Design of security validation
-- Documentation of security best practices
+- Limited security procedures
+- Basic security documentation
 
 ## Next Steps
 
