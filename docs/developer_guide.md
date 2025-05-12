@@ -323,6 +323,160 @@ make release-check
 make release
 ```
 
+## Testing Infrastructure
+
+### Directory Structure
+```
+tests/
+├── unit/                    # Unit tests
+├── integration/            # Integration tests
+├── e2e/                    # End-to-end tests
+├── security/              # Security tests
+└── fixtures/              # Test fixtures and mocks
+```
+
+### Test Categories
+
+1. **Unit Tests**
+   - Core functionality tests
+   - Identity management tests
+   - Security-related tests
+   - Coverage requirement: > 80%
+
+2. **Integration Tests**
+   - Kubernetes integration tests
+   - Cloud provider integration tests
+   - SPIRE integration tests
+   - Coverage requirement: > 70%
+
+3. **End-to-End Tests**
+   - Common usage scenarios
+   - Performance test scenarios
+   - Critical paths only
+
+4. **Security Tests**
+   - Penetration tests
+   - Fuzzing tests
+   - All security-critical paths
+
+### Test Fixtures
+
+The project includes comprehensive test fixtures in the `tests/fixtures` directory:
+
+1. **Kubernetes Fixtures**
+   ```yaml
+   # Example: test-pod.yaml
+   apiVersion: v1
+   kind: Pod
+   metadata:
+     annotations:
+       workload-identity.io/cloud-provider: "aws"
+       workload-identity.io/role-arn: "arn:aws:iam::123456789012:role/test-role"
+   ```
+
+2. **Cloud Provider Fixtures**
+   ```json
+   // Example: aws-test-config.json
+   {
+     "Version": "2012-10-17",
+     "Statement": [
+       {
+         "Effect": "Allow",
+         "Action": ["sts:AssumeRoleWithWebIdentity"],
+         "Resource": "arn:aws:iam::123456789012:role/test-role"
+       }
+     ]
+   }
+   ```
+
+3. **Certificate Fixtures**
+   ```bash
+   # Generate test certificates
+   ./tests/fixtures/certs/generate-test-certs.sh \
+     --output-dir ./certs \
+     --validity 365 \
+     --ca-name "Test CA"
+   ```
+
+### Running Tests
+
+1. **Unit Tests**
+   ```bash
+   # Run all unit tests
+   go test ./tests/unit/...
+
+   # Run specific test
+   go test ./tests/unit/core/...
+
+   # Run with coverage
+   go test -cover ./tests/unit/...
+   ```
+
+2. **Integration Tests**
+   ```bash
+   # Run all integration tests
+   go test ./tests/integration/...
+
+   # Run specific provider tests
+   go test ./tests/integration/cloud/...
+
+   # Run with verbose output
+   go test -v ./tests/integration/...
+   ```
+
+3. **End-to-End Tests**
+   ```bash
+   # Run all E2E tests
+   go test ./tests/e2e/...
+
+   # Run specific scenario
+   go test ./tests/e2e/scenarios/...
+
+   # Run performance tests
+   go test ./tests/e2e/performance/...
+   ```
+
+### Test Environment Setup
+
+1. **Prerequisites**
+   - Go 1.21 or later
+   - Docker
+   - kubectl
+   - kind (for local Kubernetes testing)
+   - Cloud provider credentials
+
+2. **Local Setup**
+   ```bash
+   # Set up test cluster
+   make setup-test-cluster
+
+   # Configure cloud credentials
+   make setup-cloud-credentials
+
+   # Start test dependencies
+   make start-test-dependencies
+   ```
+
+### Best Practices
+
+1. **Writing Tests**
+   - Use table-driven tests
+   - Mock external dependencies
+   - Keep tests focused and atomic
+   - Use descriptive test names
+
+2. **Test Fixtures**
+   - Keep fixtures minimal
+   - Document dependencies
+   - Version control fixture data
+   - Clean up after use
+
+3. **Security**
+   - Use test credentials
+   - Encrypt sensitive data
+   - Rotate test keys
+   - Clean up secrets
+
 ## Conclusion
 
 This guide provides comprehensive instructions for developers. For additional information, refer to:

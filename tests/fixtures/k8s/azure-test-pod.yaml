@@ -1,0 +1,33 @@
+apiVersion: v1
+kind: Pod
+metadata:
+  name: azure-test-workload
+  namespace: default
+  annotations:
+    workload-identity.io/cloud-provider: "azure"
+    workload-identity.io/client-id: "test-client-id"
+    workload-identity.io/tenant-id: "test-tenant-id"
+spec:
+  serviceAccountName: azure-test-sa
+  containers:
+  - name: test-container
+    image: test-image:latest
+    env:
+    - name: AZURE_CLIENT_ID
+      value: "test-client-id"
+    - name: AZURE_TENANT_ID
+      value: "test-tenant-id"
+    - name: AZURE_FEDERATED_TOKEN_FILE
+      value: "/var/run/secrets/azure/token"
+    volumeMounts:
+    - name: azure-token
+      mountPath: /var/run/secrets/azure
+      readOnly: true
+  volumes:
+  - name: azure-token
+    projected:
+      sources:
+      - serviceAccountToken:
+          path: token
+          expirationSeconds: 3600
+          audience: "api://AzureADTokenExchange" 

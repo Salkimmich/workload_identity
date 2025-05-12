@@ -1,0 +1,18 @@
+{
+  "bindings": [
+    {
+      "role": "roles/iam.workloadIdentityUser",
+      "members": [
+        "serviceAccount:test-project.svc.id.goog[default/gcp-test-sa]"
+      ]
+    },
+    {
+      "role": "roles/storage.objectViewer",
+      "members": [
+        "serviceAccount:test-sa@test-project.iam.gserviceaccount.com"
+      ]
+    }
+  ],
+  "etag": "BwW9gQh4Z4Y=",
+  "version": 3
+} 
