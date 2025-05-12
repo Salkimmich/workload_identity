@@ -1,0 +1,31 @@
+server:
+  bind_address: "0.0.0.0"
+  bind_port: 8081
+  trust_domain: "test.example"
+  data_dir: "/opt/spire/data"
+  log_level: "DEBUG"
+  log_file: "/opt/spire/logs/spire-server.log"
+  ca_key_type: "rsa-2048"
+  ca_ttl: "24h"
+  jwt_issuer: "https://test.example"
+  jwt_ttl: "1h"
+
+plugins:
+  DataStore:
+    sql:
+      database_type: "sqlite3"
+      connection_string: "/opt/spire/data/server.sqlite3"
+
+  NodeAttestor:
+    join_token:
+      enabled: true
+
+  KeyManager:
+    memory:
+      enabled: true
+
+  WorkloadAttestor:
+    unix:
+      enabled: true
+      discover_workload_path: true
+      workload_size_limit: 0 

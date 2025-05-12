@@ -428,6 +428,104 @@ data:
     }
 ```
 
+## Test Fixtures
+
+The project includes comprehensive test fixtures for each cloud provider. These can be found in the `tests/fixtures` directory:
+
+### Directory Structure
+```
+tests/fixtures/
+├── k8s/              # Kubernetes test fixtures
+├── cloud/            # Cloud provider test fixtures
+├── spire/            # SPIRE test fixtures
+├── certs/            # Certificate fixtures
+└── mocks/            # Mock implementations
+```
+
+### Using Test Fixtures
+
+1. **Kubernetes Fixtures**
+   - Test pod configurations
+   - Service account definitions
+   - Network policies
+   - RBAC rules
+
+2. **Cloud Provider Fixtures**
+   - IAM role definitions
+   - Service account configurations
+   - Token samples
+   - API responses
+
+3. **Certificate Fixtures**
+   - Root certificates
+   - Intermediate certificates
+   - Leaf certificates
+   - Key pairs
+
+4. **Mock Implementations**
+   - Cloud provider clients
+   - Kubernetes clients
+   - SPIRE clients
+   - Token providers
+
+## Testing
+
+### Unit Tests
+```bash
+# Run all unit tests
+go test ./tests/unit/...
+
+# Run specific test
+go test ./tests/unit/core/...
+
+# Run with coverage
+go test -cover ./tests/unit/...
+```
+
+### Integration Tests
+```bash
+# Run all integration tests
+go test ./tests/integration/...
+
+# Run specific provider tests
+go test ./tests/integration/cloud/...
+
+# Run with verbose output
+go test -v ./tests/integration/...
+```
+
+### End-to-End Tests
+```bash
+# Run all E2E tests
+go test ./tests/e2e/...
+
+# Run specific scenario
+go test ./tests/e2e/scenarios/...
+
+# Run performance tests
+go test ./tests/e2e/performance/...
+```
+
+## Best Practices
+
+1. **Cloud Provider Integration**
+   - Use provider-specific annotations
+   - Configure proper token audiences
+   - Set up appropriate IAM roles
+   - Implement proper error handling
+
+2. **Testing**
+   - Use provided test fixtures
+   - Follow test patterns
+   - Document test dependencies
+   - Clean up test resources
+
+3. **Security**
+   - Use test credentials
+   - Encrypt sensitive data
+   - Rotate test keys
+   - Clean up secrets
+
 ## Conclusion
 
 This integration guide provides instructions for integrating the workload identity system with various platforms and services, including cloud-specific details for AWS, Azure, and GCP. For additional information, refer to:

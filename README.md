@@ -155,6 +155,12 @@ The project uses SPIRE (SPIFFE Runtime Environment) as its core workload identit
 │   ├── troubleshooting_guide.md # Common issues
 │   ├── pki_guide.md         # PKI concepts and usage
 │   └── pki_concepts_detailed.md # Detailed PKI documentation
+├── tests/                    # Test infrastructure
+│   ├── unit/                # Unit tests
+│   ├── integration/         # Integration tests
+│   ├── e2e/                # End-to-end tests
+│   ├── security/           # Security tests
+│   └── fixtures/           # Test fixtures and mocks
 ├── infrastructure/           # Infrastructure as Code
 │   └── kubernetes/          # Kubernetes manifests
 │       ├── spire/          # SPIRE server and agent configs
@@ -189,6 +195,20 @@ The documentation directory contains comprehensive guides covering all aspects o
 - Compliance requirements and implementation
 - Troubleshooting guides
 - PKI concepts and detailed documentation
+
+#### Testing (`tests/`)
+The testing directory contains a comprehensive test suite:
+- Unit tests for individual components
+- Integration tests for component interactions
+- End-to-end tests for complete workflows
+- Security tests including penetration and fuzzing tests
+- Test fixtures and mocks for various components
+
+Key features:
+- Cloud provider test fixtures (AWS, GCP, Azure)
+- Kubernetes test configurations
+- Certificate generation and management
+- Mock implementations for external services
 
 #### Infrastructure (`infrastructure/`)
 The infrastructure directory contains all infrastructure-as-code configurations:
