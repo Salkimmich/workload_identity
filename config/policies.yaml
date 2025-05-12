@@ -2,39 +2,60 @@
 # This file defines the access control policies for workloads
 # Note: This is a basic policy file. Production environments should have more restrictive policies.
 
-apiVersion: security.workload/v1
-kind: WorkloadPolicies
+apiVersion: security.workload/v1  # Required: API version for workload policies
+kind: WorkloadPolicies           # Required: Resource type
 
 # Service-to-service communication policies
+# Required: Define how services can communicate with each other
 servicePolicies:
-  - name: "internal-service-access"
-    description: "Allow internal service communication"
+  - name: "internal-service-access"  # Required: Unique policy name
+    description: "Allow internal service communication"  # Required: Policy description
     rules:
-      - action: "allow"
-        source: "service:*"
-        destination: "service:internal-api"
-        methods: ["GET", "POST"]
-        paths: ["/api/v1/*"]
+      - action: "allow"  # Required: Action to take (allow/deny)
+        source: "service:*"  # Required: Source service pattern
+        destination: "service:internal-api"  # Required: Target service
+        methods: ["GET", "POST"]  # Required: Allowed HTTP methods
+        paths: ["/api/v1/*"]  # Required: Allowed URL paths
 
 # Resource access policies
+# Required: Define access to specific resources
 resourcePolicies:
-  - name: "database-access"
-    description: "Database access policy"
+  - name: "database-access"  # Required: Unique policy name
+    description: "Database access policy"  # Required: Policy description
     rules:
-      - action: "allow"
-        workload: "service:database-client"
-        resource: "database:main"
-        operations: ["read", "write"]
+      - action: "allow"  # Required: Action to take (allow/deny)
+        workload: "service:database-client"  # Required: Workload identifier
+        resource: "database:main"  # Required: Resource identifier
+        operations: ["read", "write"]  # Required: Allowed operations
 
 # Network policies
+# Required: Define network-level access rules
 networkPolicies:
-  - name: "internal-network"
-    description: "Internal network access"
+  - name: "internal-network"  # Required: Unique policy name
+    description: "Internal network access"  # Required: Policy description
     rules:
-      - action: "allow"
-        source: "network:internal"
-        destination: "service:*"
-        ports: [80, 443]
+      - action: "allow"  # Required: Action to take (allow/deny)
+        source: "network:internal"  # Required: Source network
+        destination: "service:*"  # Required: Target service pattern
+        ports: [80, 443]  # Required: Allowed ports
+
+# Production Environment Recommendations:
+# Required:
+# - Add more specific rules for each service
+# - Include explicit deny rules
+# - Add time-based restrictions
+# - Include IP-based restrictions
+# - Add more granular permissions
+#
+# Optional but Recommended:
+# - Add labels for policy management
+# - Include annotations for documentation
+# - Add policy versioning
+# - Implement policy inheritance
+# - Add policy validation rules
+# - Include audit logging rules
+# - Add policy enforcement modes
+# - Configure policy evaluation order
 
 # Note: This is a simplified policy file. In production:
 # - Add more specific rules
