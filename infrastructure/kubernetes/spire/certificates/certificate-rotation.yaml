@@ -1,0 +1,145 @@
+# SPIRE Certificate Rotation Configuration
+# This file defines the certificate rotation settings for SPIRE components.
+# It includes automatic rotation of SVIDs, CA certificates, and trust bundles.
+#
+# Security Considerations:
+# 1. All rotation intervals must be less than certificate validity periods
+# 2. Grace periods must be sufficient for rotation to complete
+# 3. Maximum certificate counts should be balanced between security and storage
+# 4. Backup settings should be configured for disaster recovery
+# 5. CRL settings should be configured if certificate revocation is needed
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: spire-certificate-rotation
+  namespace: spire
+data:
+  rotation.conf: |
+    # Certificate rotation configuration
+    # Required: At least one rotation configuration must be specified
+    # Best Practice: Configure all three (SVID, CA, trust bundle) for complete security
+    rotation {
+      # SVID rotation settings
+      # Required: rotation_interval and rotation_grace_period
+      # Optional: max_svids (defaults to 5)
+      # Security Note: SVIDs are short-lived certificates for workloads
+      # Best Practice: Keep rotation_interval short for better security
+      svid {
+        # How often to rotate SVIDs
+        # Required: Must be less than certificate validity period
+        # Best Practice: 1h for high-security environments, 4h for standard
+        # Security Note: Shorter intervals reduce the impact of compromised certificates
+        rotation_interval = "1h"
+        
+        # How long before expiration to start rotation
+        # Required: Must be less than rotation_interval
+        # Best Practice: 15-25% of rotation_interval
+        # Security Note: Must be long enough for rotation to complete
+        rotation_grace_period = "15m"
+        
+        # Maximum number of SVIDs to keep
+        # Optional: Defaults to 5 if not specified
+        # Best Practice: Keep this number low to reduce attack surface
+        # Security Note: Higher numbers increase storage requirements
+        max_svids = 5
+      }
+      
+      # CA certificate rotation settings
+      # Required: rotation_interval and rotation_grace_period
+      # Optional: max_ca_certs (defaults to 3)
+      # Security Note: CA certs are long-lived and critical for trust
+      # Best Practice: Rotate less frequently than SVIDs but more than trust bundles
+      ca {
+        # How often to rotate CA certificates
+        # Required: Must be less than CA certificate validity period
+        # Best Practice: 24h for high-security environments, 72h for standard
+        # Security Note: CA rotation requires coordination with all agents
+        rotation_interval = "24h"
+        
+        # How long before expiration to start rotation
+        # Required: Must be less than rotation_interval
+        # Best Practice: 1-2h for high-security environments
+        # Security Note: Must be long enough for all agents to receive new CA
+        rotation_grace_period = "1h"
+        
+        # Maximum number of CA certificates to keep
+        # Optional: Defaults to 3 if not specified
+        # Best Practice: Keep this number low to reduce attack surface
+        # Security Note: Higher numbers increase storage requirements
+        max_ca_certs = 3
+      }
+      
+      # Trust bundle rotation settings
+      # Required: rotation_interval and rotation_grace_period
+      # Optional: max_trust_bundles (defaults to 3)
+      # Security Note: Trust bundles are used for federation and cross-domain trust
+      # Best Practice: Rotate less frequently than CA certs
+      trust_bundle {
+        # How often to rotate trust bundles
+        # Required: Must be less than trust bundle validity period
+        # Best Practice: 12h for high-security environments, 24h for standard
+        # Security Note: Trust bundle rotation affects federation
+        rotation_interval = "12h"
+        
+        # How long before expiration to start rotation
+        # Required: Must be less than rotation_interval
+        # Best Practice: 30m-1h for high-security environments
+        # Security Note: Must be long enough for federation partners to update
+        rotation_grace_period = "30m"
+        
+        # Maximum number of trust bundles to keep
+        # Optional: Defaults to 3 if not specified
+        # Best Practice: Keep this number low to reduce attack surface
+        # Security Note: Higher numbers increase storage requirements
+        max_trust_bundles = 3
+      }
+    }
+    
+    # CRL (Certificate Revocation List) settings
+    # Optional: Entire CRL section can be omitted if not using certificate revocation
+    # Security Note: CRL is important for revoking compromised certificates
+    # Best Practice: Enable CRL in production environments
+    crl {
+      # How often to update the CRL
+      # Required if CRL is enabled: Must be less than validity_period
+      # Best Practice: 1h for high-security environments, 4h for standard
+      # Security Note: Shorter intervals ensure faster revocation
+      update_interval = "1h"
+      
+      # CRL validity period
+      # Required if CRL is enabled: Must be greater than update_interval
+      # Best Practice: 24h for high-security environments, 72h for standard
+      # Security Note: Must be long enough for all clients to refresh
+      validity_period = "24h"
+      
+      # Maximum number of revoked certificates to track
+      # Optional: Defaults to 1000 if not specified
+      # Best Practice: Set based on expected revocation volume
+      # Security Note: Higher numbers increase storage requirements
+      max_revoked_certs = 1000
+    }
+    
+    # Backup settings
+    # Optional: Entire backup section can be omitted if not using certificate backups
+    # Security Note: Backups are critical for disaster recovery
+    # Best Practice: Enable backups in production environments
+    backup {
+      # How often to backup certificates
+      # Required if backup is enabled: Must be less than certificate validity period
+      # Best Practice: 6h for high-security environments, 12h for standard
+      # Security Note: More frequent backups reduce data loss risk
+      backup_interval = "6h"
+      
+      # Maximum number of backups to keep
+      # Optional: Defaults to 24 if not specified
+      # Best Practice: Keep at least 24 hours of backups
+      # Security Note: Higher numbers increase storage requirements
+      max_backups = 24
+      
+      # Backup directory
+      # Required if backup is enabled: Must be writable by SPIRE process
+      # Best Practice: Use a dedicated volume for backups
+      # Security Note: Backup directory must be secure and encrypted
+      backup_dir = "/run/spire/backup"
+    } 
