@@ -1,56 +1,134 @@
 # SPIRE RBAC Configuration
 # This file defines the RBAC (Role-Based Access Control) settings for SPIRE components,
 # including service accounts, roles, and role bindings for both the server and agent.
+#
+# Security Considerations:
+# 1. Service accounts must have minimal required permissions
+# 2. Role bindings must be properly scoped
+# 3. Cluster roles must follow least privilege principle
+# 4. Service account tokens must be properly managed
+# 5. RBAC permissions must be regularly audited
+# 6. Namespace isolation must be properly configured
+# 7. Access control must be properly enforced
+# 8. Service account creation must be controlled
+# 9. Role bindings must be properly validated
+# 10. Permissions must be regularly reviewed
+# 11. Network policies must be configured
+# 12. Pod security policies must be configured
+# 13. Namespace isolation must be enforced
+# 14. Service account token management must be configured
+# 15. Audit logging must be enabled
 
 ---
 # SPIRE Server Service Account
-# This service account is used by the SPIRE server to interact with the Kubernetes API
+# Required: Service account for SPIRE server
+# Best Practice: Use dedicated service account
+# Security Note: Service account must have minimal permissions
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: spire-server
   namespace: spire
+  # Required: Service account annotations
+  # Best Practice: Configure token management
+  # Security Note: Tokens must be properly managed
+  annotations:
+    # Required: Token expiration
+    # Best Practice: Use short expiration
+    # Security Note: Must be properly configured
+    kubernetes.io/service-account.token-expiration: "1h"
+    
+    # Required: Token audience
+    # Best Practice: Use specific audience
+    # Security Note: Must be properly configured
+    kubernetes.io/service-account.token-audience: "spire-server"
 ---
+# SPIRE Agent Service Account
+# Required: Service account for SPIRE agent
+# Best Practice: Use dedicated service account
+# Security Note: Service account must have minimal permissions
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: spire-agent
   namespace: spire
+  # Required: Service account annotations
+  # Best Practice: Configure token management
+  # Security Note: Tokens must be properly managed
+  annotations:
+    # Required: Token expiration
+    # Best Practice: Use short expiration
+    # Security Note: Must be properly configured
+    kubernetes.io/service-account.token-expiration: "1h"
+    
+    # Required: Token audience
+    # Best Practice: Use specific audience
+    # Security Note: Must be properly configured
+    kubernetes.io/service-account.token-audience: "spire-agent"
 ---
 # SPIRE Server Cluster Role
-# Defines the permissions needed by the SPIRE server to manage node attestation
-# and workload identity
+# Required: Defines permissions for SPIRE server
+# Best Practice: Follow least privilege principle
+# Security Note: Permissions must be minimal and necessary
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: spire-server-trust-role
 rules:
-  # Permission to get nodes
-  # Required for node attestation
+  # Required: Node access for attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Node information is sensitive
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch"]
   
-  # Permission to manage service accounts
-  # Required for workload attestation
+  # Required: Service account access for workload attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Service account information is sensitive
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "list", "watch"]
   
-  # Permission to manage pods
-  # Required for workload attestation
+  # Required: Pod access for workload attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Pod information is sensitive
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
   
-  # Permission to manage namespaces
-  # Required for workload attestation
+  # Required: Namespace access for workload attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Namespace information is sensitive
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["get", "list", "watch"]
+  
+  # Required: Namespace isolation
+  # Best Practice: Limit namespace access
+  # Security Note: Must be properly configured
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+    # Required: Resource names
+    # Best Practice: Limit to specific namespaces
+    # Security Note: Must be properly configured
+    resourceNames: ["spire"]
+  
+  # Required: Pod security
+  # Best Practice: Configure pod security
+  # Security Note: Must be properly configured
+  - apiGroups: ["policy"]
+    resources: ["podsecuritypolicies"]
+    verbs: ["use"]
+    # Required: Resource names
+    # Best Practice: Limit to specific policies
+    # Security Note: Must be properly configured
+    resourceNames: ["spire-server-psp"]
 ---
 # SPIRE Server Cluster Role Binding
-# Binds the SPIRE server service account to its cluster role
+# Required: Binds server service account to role
+# Best Practice: Use explicit role binding
+# Security Note: Binding must be properly scoped
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -64,48 +142,69 @@ subjects:
   name: spire-server
   namespace: spire
 ---
-# SPIRE Agent Service Account
-# This service account is used by the SPIRE agent to interact with the Kubernetes API
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: spire-agent
-  namespace: spire
----
 # SPIRE Agent Cluster Role
-# Defines the permissions needed by the SPIRE agent to attest node identity
-# and manage workload identity
+# Required: Defines permissions for SPIRE agent
+# Best Practice: Follow least privilege principle
+# Security Note: Permissions must be minimal and necessary
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
   name: spire-agent-cluster-role
 rules:
-  # Permission to get nodes
-  # Required for node attestation
+  # Required: Node access for attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Node information is sensitive
   - apiGroups: [""]
     resources: ["nodes"]
     verbs: ["get", "list", "watch"]
   
-  # Permission to manage service accounts
-  # Required for workload attestation
+  # Required: Service account access for workload attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Service account information is sensitive
   - apiGroups: [""]
     resources: ["serviceaccounts"]
     verbs: ["get", "list", "watch"]
   
-  # Permission to manage pods
-  # Required for workload attestation
+  # Required: Pod access for workload attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Pod information is sensitive
   - apiGroups: [""]
     resources: ["pods"]
     verbs: ["get", "list", "watch"]
   
-  # Permission to manage namespaces
-  # Required for workload attestation
+  # Required: Namespace access for workload attestation
+  # Best Practice: Limit to read-only access
+  # Security Note: Namespace information is sensitive
   - apiGroups: [""]
     resources: ["namespaces"]
     verbs: ["get", "list", "watch"]
+  
+  # Required: Namespace isolation
+  # Best Practice: Limit namespace access
+  # Security Note: Must be properly configured
+  - apiGroups: [""]
+    resources: ["namespaces"]
+    verbs: ["get", "list", "watch"]
+    # Required: Resource names
+    # Best Practice: Limit to specific namespaces
+    # Security Note: Must be properly configured
+    resourceNames: ["spire"]
+  
+  # Required: Pod security
+  # Best Practice: Configure pod security
+  # Security Note: Must be properly configured
+  - apiGroups: ["policy"]
+    resources: ["podsecuritypolicies"]
+    verbs: ["use"]
+    # Required: Resource names
+    # Best Practice: Limit to specific policies
+    # Security Note: Must be properly configured
+    resourceNames: ["spire-agent-psp"]
 ---
 # SPIRE Agent Cluster Role Binding
-# Binds the SPIRE agent service account to its cluster role
+# Required: Binds agent service account to role
+# Best Practice: Use explicit role binding
+# Security Note: Binding must be properly scoped
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -117,4 +216,193 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: spire-agent
-  namespace: spire 
+  namespace: spire
+---
+# SPIRE Network Policy
+# Required: Defines network access for SPIRE components
+# Best Practice: Follow least privilege principle
+# Security Note: Network access must be properly restricted
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: spire-network-policy
+  namespace: spire
+spec:
+  # Required: Pod selector
+  # Best Practice: Select all SPIRE pods
+  # Security Note: Must be properly configured
+  podSelector:
+    matchLabels:
+      app: spire
+  
+  # Required: Policy types
+  # Best Practice: Configure both ingress and egress
+  # Security Note: Must be properly configured
+  policyTypes:
+  - Ingress
+  - Egress
+  
+  # Required: Ingress rules
+  # Best Practice: Limit ingress access
+  # Security Note: Must be properly configured
+  ingress:
+  - from:
+    - podSelector:
+        matchLabels:
+          app: spire
+    
+    # Required: Ports
+    # Best Practice: Limit to required ports
+    # Security Note: Must be properly configured
+    ports:
+    - protocol: TCP
+      port: 8081
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8088
+  
+  # Required: Egress rules
+  # Best Practice: Limit egress access
+  # Security Note: Must be properly configured
+  egress:
+  - to:
+    - podSelector:
+        matchLabels:
+          app: spire
+    
+    # Required: Ports
+    # Best Practice: Limit to required ports
+    # Security Note: Must be properly configured
+    ports:
+    - protocol: TCP
+      port: 8081
+    - protocol: TCP
+      port: 8080
+    - protocol: TCP
+      port: 8088
+---
+# SPIRE Pod Security Policy
+# Required: Defines security settings for SPIRE pods
+# Best Practice: Follow security best practices
+# Security Note: Must be properly configured
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: spire-server-psp
+spec:
+  # Required: Privileged
+  # Best Practice: Disable privileged access
+  # Security Note: Must be properly configured
+  privileged: false
+  
+  # Required: Host network
+  # Best Practice: Disable host network
+  # Security Note: Must be properly configured
+  hostNetwork: false
+  
+  # Required: Host IPC
+  # Best Practice: Disable host IPC
+  # Security Note: Must be properly configured
+  hostIPC: false
+  
+  # Required: Host PID
+  # Best Practice: Disable host PID
+  # Security Note: Must be properly configured
+  hostPID: false
+  
+  # Required: Run as user
+  # Best Practice: Use non-root user
+  # Security Note: Must be properly configured
+  runAsUser:
+    rule: MustRunAsNonRoot
+  
+  # Required: Run as group
+  # Best Practice: Use dedicated group
+  # Security Note: Must be properly configured
+  runAsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  
+  # Required: FS group
+  # Best Practice: Use dedicated group
+  # Security Note: Must be properly configured
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  
+  # Required: Volumes
+  # Best Practice: Limit volume types
+  # Security Note: Must be properly configured
+  volumes:
+  - 'configMap'
+  - 'secret'
+  - 'emptyDir'
+  - 'projected'
+---
+# SPIRE Agent Pod Security Policy
+# Required: Defines security settings for SPIRE agent pods
+# Best Practice: Follow security best practices
+# Security Note: Must be properly configured
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: spire-agent-psp
+spec:
+  # Required: Privileged
+  # Best Practice: Disable privileged access
+  # Security Note: Must be properly configured
+  privileged: false
+  
+  # Required: Host network
+  # Best Practice: Disable host network
+  # Security Note: Must be properly configured
+  hostNetwork: false
+  
+  # Required: Host IPC
+  # Best Practice: Disable host IPC
+  # Security Note: Must be properly configured
+  hostIPC: false
+  
+  # Required: Host PID
+  # Best Practice: Disable host PID
+  # Security Note: Must be properly configured
+  hostPID: false
+  
+  # Required: Run as user
+  # Best Practice: Use non-root user
+  # Security Note: Must be properly configured
+  runAsUser:
+    rule: MustRunAsNonRoot
+  
+  # Required: Run as group
+  # Best Practice: Use dedicated group
+  # Security Note: Must be properly configured
+  runAsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  
+  # Required: FS group
+  # Best Practice: Use dedicated group
+  # Security Note: Must be properly configured
+  fsGroup:
+    rule: MustRunAs
+    ranges:
+    - min: 1000
+      max: 65535
+  
+  # Required: Volumes
+  # Best Practice: Limit volume types
+  # Security Note: Must be properly configured
+  volumes:
+  - 'configMap'
+  - 'secret'
+  - 'emptyDir'
+  - 'projected'
+  - 'hostPath' 

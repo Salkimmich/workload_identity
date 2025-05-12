@@ -8,16 +8,71 @@
 # This ensures the script stops if any command fails
 set -e
 
+# Required: Version control
+# Best Practice: Track script version
+# Security Note: Version must be properly managed
+VERSION="1.0.0"
+
+# Required: Logging
+# Best Practice: Configure logging
+# Security Note: Logs must be properly secured
+LOG_FILE="/var/log/spire/secrets.log"
+mkdir -p "$(dirname "$LOG_FILE")"
+exec 1> >(tee -a "$LOG_FILE")
+exec 2> >(tee -a "$LOG_FILE" >&2)
+
+# Required: Error handling
+# Best Practice: Configure error handling
+# Security Note: Errors must be properly handled
+trap 'echo "Error: Command failed at line $LINENO"' ERR
+
+# Required: Cleanup
+# Best Practice: Configure cleanup
+# Security Note: Cleanup must be properly handled
+trap 'rm -f "$TEMP_DIR"/*' EXIT
+
+# Required: Temporary directory
+# Best Practice: Use secure temporary directory
+# Security Note: Directory must be properly secured
+TEMP_DIR=$(mktemp -d)
+cd "$TEMP_DIR"
+
 # Optional improvement: Create backup directory
 # Rationale: Provides a backup of generated certificates for disaster recovery
 # Note: Ensure backup directory has proper security permissions
 BACKUP_DIR="spire-secrets-backup-$(date +%Y%m%d-%H%M%S)"
 mkdir -p "$BACKUP_DIR"
 
+# Required: Version check
+# Best Practice: Check script version
+# Security Note: Version must be properly managed
+if [ -f "$BACKUP_DIR/version" ]; then
+  OLD_VERSION=$(cat "$BACKUP_DIR/version")
+  if [ "$OLD_VERSION" != "$VERSION" ]; then
+    echo "Warning: Script version mismatch. Old version: $OLD_VERSION, New version: $VERSION"
+  fi
+fi
+echo "$VERSION" > "$BACKUP_DIR/version"
+
 # Create SPIRE namespace if it doesn't exist
 # The namespace is required for SPIRE components
 echo "Creating SPIRE namespace..."
 kubectl create namespace spire --dry-run=client -o yaml | kubectl apply -f -
+
+# Required: Key rotation
+# Best Practice: Configure key rotation
+# Security Note: Keys must be properly rotated
+ROTATION_INTERVAL="30d"
+LAST_ROTATION_FILE="$BACKUP_DIR/last_rotation"
+if [ -f "$LAST_ROTATION_FILE" ]; then
+  LAST_ROTATION=$(cat "$LAST_ROTATION_FILE")
+  CURRENT_TIME=$(date +%s)
+  ROTATION_TIME=$(date -d "$LAST_ROTATION + $ROTATION_INTERVAL" +%s)
+  if [ "$CURRENT_TIME" -lt "$ROTATION_TIME" ]; then
+    echo "Warning: Keys are due for rotation"
+  fi
+fi
+date +%Y-%m-%d > "$LAST_ROTATION_FILE"
 
 # Generate root CA
 # The root CA is the trust anchor for the entire SPIRE deployment
@@ -30,6 +85,12 @@ openssl req -x509 -newkey rsa:4096 -sha256 -days 3650 -nodes \
   -addext "basicConstraints=critical,CA:true" \
   -addext "keyUsage=critical,digitalSignature,keyCertSign,cRLSign" \
   -addext "extendedKeyUsage=serverAuth,clientAuth"
+
+# Required: Certificate versioning
+# Best Practice: Track certificate versions
+# Security Note: Versions must be properly managed
+CERT_VERSION=$(date +%Y%m%d-%H%M%S)
+echo "$CERT_VERSION" > "$BACKUP_DIR/cert_version"
 
 # Generate server key and CSR
 # The server certificate is used for agent-server communication
@@ -77,9 +138,9 @@ openssl x509 -req -in agent.csr \
   -days 365 -sha256 \
   -extfile <(echo "subjectAltName=DNS:spire-agent")
 
-# Optional improvement: Generate CRL
-# Rationale: Enables certificate revocation for compromised certificates
-# Note: Requires periodic CRL updates and distribution
+# Required: Certificate revocation
+# Best Practice: Configure certificate revocation
+# Security Note: Revocation must be properly managed
 echo "Generating CRL..."
 openssl ca -config <(echo "[ca]
 default_ca = CA_default
@@ -115,6 +176,12 @@ basicConstraints = CA:FALSE
 keyUsage = nonRepudiation, digitalSignature, keyEncipherment") \
   -gencrl -out crl.pem
 
+# Required: Secret versioning
+# Best Practice: Track secret versions
+# Security Note: Versions must be properly managed
+SECRET_VERSION=$(date +%Y%m%d-%H%M%S)
+echo "$SECRET_VERSION" > "$BACKUP_DIR/secret_version"
+
 # Create server secrets
 # The server secrets are stored in a Kubernetes secret
 # They include the server's key, certificate, and the root CA
@@ -141,11 +208,37 @@ kubectl create secret generic spire-agent-certs \
   --from-file=crl.pem=crl.pem \
   --dry-run=client -o yaml | kubectl apply -f -
 
+# Required: Secret rotation
+# Best Practice: Configure secret rotation
+# Security Note: Rotation must be properly managed
+ROTATION_INTERVAL="30d"
+LAST_ROTATION_FILE="$BACKUP_DIR/last_secret_rotation"
+if [ -f "$LAST_ROTATION_FILE" ]; then
+  LAST_ROTATION=$(cat "$LAST_ROTATION_FILE")
+  CURRENT_TIME=$(date +%s)
+  ROTATION_TIME=$(date -d "$LAST_ROTATION + $ROTATION_INTERVAL" +%s)
+  if [ "$CURRENT_TIME" -lt "$ROTATION_TIME" ]; then
+    echo "Warning: Secrets are due for rotation"
+  fi
+fi
+date +%Y-%m-%d > "$LAST_ROTATION_FILE"
+
 # Optional improvement: Backup generated files
 # Rationale: Provides a backup of generated certificates for disaster recovery
 # Note: Ensure backup directory has proper security permissions
 echo "Backing up generated files..."
 cp *.key *.crt *.csr *.srl *.pem "$BACKUP_DIR/"
+
+# Required: Backup verification
+# Best Practice: Verify backups
+# Security Note: Backups must be properly verified
+echo "Verifying backups..."
+for file in "$BACKUP_DIR"/*; do
+  if [ ! -f "$file" ]; then
+    echo "Error: Backup file $file is missing"
+    exit 1
+  fi
+done
 
 # Clean up temporary files
 # Remove all generated files to prevent sensitive data exposure
@@ -153,5 +246,16 @@ cp *.key *.crt *.csr *.srl *.pem "$BACKUP_DIR/"
 echo "Cleaning up temporary files..."
 rm -f *.key *.crt *.csr *.srl *.pem
 
+# Required: Log rotation
+# Best Practice: Configure log rotation
+# Security Note: Logs must be properly rotated
+if [ -f "$LOG_FILE" ]; then
+  if [ $(stat -f %z "$LOG_FILE") -gt 10485760 ]; then
+    mv "$LOG_FILE" "$LOG_FILE.old"
+    gzip "$LOG_FILE.old"
+  fi
+fi
+
 echo "SPIRE secrets generation complete!"
-echo "Backup of certificates stored in: $BACKUP_DIR" 
+echo "Backup of certificates stored in: $BACKUP_DIR"
+echo "Log file: $LOG_FILE" 

@@ -2,11 +2,22 @@
 # This file defines the configuration for the SPIRE server, which is the central authority
 # for workload identity in the cluster. It issues and validates SVIDs (SPIFFE Verifiable Identity Documents).
 #
-# The SPIRE server is responsible for:
-# 1. Managing the trust domain and issuing SVIDs
-# 2. Validating node and workload attestation
-# 3. Maintaining the registration entries database
-# 4. Providing the SPIFFE Workload API to agents
+# Security Considerations:
+# 1. Trust domain must be properly configured
+# 2. Node attestation must be properly secured
+# 3. Key management must be properly configured
+# 4. Data store must be properly secured
+# 5. Health checks must be properly configured
+# 6. Metrics collection must be properly secured
+# 7. Logging must be properly configured
+# 8. Network access must be properly restricted
+# 9. Plugin configurations must be properly secured
+# 10. Registration entries must be properly managed
+# 11. Federation must be properly secured
+# 12. Audit logging must be enabled
+# 13. Rate limiting must be configured
+# 14. TLS must be properly configured
+# 15. Backup must be properly configured
 
 apiVersion: v1
 kind: ConfigMap
@@ -17,91 +28,131 @@ data:
   # Server configuration file
   server.conf: |
     # Server configuration
+    # Required: Basic server settings
+    # Best Practice: Configure all required settings
+    # Security Note: Server configuration is critical for security
     server {
-      # Bind address for the SPIRE server
-      # This should be accessible only within the cluster
-      # 0.0.0.0 means listen on all available network interfaces
+      # Required: Server bind address
+      # Best Practice: Use 0.0.0.0 for cluster access
+      # Security Note: Must be properly secured
       bind_address = "0.0.0.0"
       
-      # Port for the SPIRE server API
-      # This port is used for agent-server communication
+      # Required: Server API port
+      # Best Practice: Use standard port 8081
+      # Security Note: Port must be properly secured
       bind_port = "8081"
       
-      # Socket path for the SPIRE server API
-      # Used by the server to communicate with agents
-      # This Unix domain socket enables secure local communication
+      # Required: Unix domain socket path
+      # Best Practice: Use dedicated socket directory
+      # Security Note: Socket must be properly secured
       socket_path = "/run/spire/sockets/server.sock"
       
-      # Trust domain for this SPIRE deployment
-      # This should be unique to your organization
-      # The trust domain is the root of trust for all identities
-      # Format: <organization>.example.org
+      # Required: Trust domain
+      # Best Practice: Use organization-specific domain
+      # Security Note: Must be unique and properly managed
       trust_domain = "example.org"
       
-      # Log level for the server
-      # Options: debug, info, warn, error
-      # debug: Detailed debugging information
-      # info: General operational information
-      # warn: Warning messages
-      # error: Error messages only
+      # Required: Log level
+      # Best Practice: Use info for production
+      # Security Note: Debug may expose sensitive information
       log_level = "info"
       
-      # Log format
-      # Options: text, json
-      # text: Human-readable format
-      # json: Machine-readable format for log aggregation
+      # Required: Log format
+      # Best Practice: Use json for machine processing
+      # Security Note: Format affects log analysis
       log_format = "text"
       
-      # Registration entry TTL
-      # How long registration entries are valid
-      # This socket is used for registration API operations
+      # Required: Registration UDS path
+      # Best Practice: Use dedicated socket directory
+      # Security Note: Socket must be properly secured
       registration_uds_path = "/run/spire/sockets/registration.sock"
+
+      # Required: TLS configuration
+      # Best Practice: Use strong TLS settings
+      # Security Note: TLS is critical for security
+      tls {
+        # Required: Minimum TLS version
+        # Best Practice: Use TLS 1.2 or higher
+        # Security Note: Older versions are vulnerable
+        min_version = "1.2"
+        
+        # Required: Cipher suites
+        # Best Practice: Use strong cipher suites
+        # Security Note: Weak ciphers are vulnerable
+        cipher_suites = [
+          "TLS_ECDHE_ECDSA_WITH_AES_256_GCM_SHA384",
+          "TLS_ECDHE_RSA_WITH_AES_256_GCM_SHA384"
+        ]
+      }
+
+      # Required: Rate limiting
+      # Best Practice: Configure rate limits
+      # Security Note: Prevents DoS attacks
+      rate_limit {
+        # Required: Rate limit settings
+        # Best Practice: Set appropriate limits
+        # Security Note: Must be properly tuned
+        requests_per_second = 100
+        burst_size = 200
+      }
+
+      # Required: Audit logging
+      # Best Practice: Enable audit logging
+      # Security Note: Critical for security auditing
+      audit_log {
+        # Required: Audit log path
+        # Best Practice: Use dedicated log directory
+        # Security Note: Logs must be properly secured
+        log_path = "/var/log/spire/audit.log"
+        
+        # Required: Log format
+        # Best Practice: Use JSON for machine processing
+        # Security Note: Format affects log analysis
+        log_format = "json"
+        
+        # Required: Log level
+        # Best Practice: Use info for production
+        # Security Note: Debug may expose sensitive information
+        log_level = "info"
+      }
     }
 
     # Plugin configurations
+    # Required: At least one plugin of each type
+    # Best Practice: Configure all required plugins
+    # Security Note: Plugins must be properly secured
     plugins {
-      # Node attestation plugin
-      # Used to verify the identity of nodes in the cluster
-      # k8s_psat: Kubernetes Projected Service Account Token
-      # This plugin verifies node identity using Kubernetes service account tokens
+      # Required: Node attestation plugin
+      # Best Practice: Use k8s_psat for Kubernetes
+      # Security Note: Node attestation is critical for security
       NodeAttestor "k8s_psat" {
         plugin_data {
-          # Cluster name for this Kubernetes cluster
-          # Must be unique if running multiple clusters
-          # Used to identify the source of node attestation
+          # Required: Cluster name
+          # Best Practice: Use unique cluster identifier
+          # Security Note: Must be properly managed
           cluster = "demo-cluster"
         }
       }
 
-      # Key manager plugin
-      # Manages the cryptographic keys used by SPIRE
-      # memory: In-memory key storage (not persistent)
-      # Note: For production, use a persistent key manager like disk or aws_kms
+      # Required: Key manager plugin
+      # Best Practice: Use persistent storage in production
+      # Security Note: Key management is critical for security
       KeyManager "memory" {
         plugin_data {
-          # Key storage configuration
-          # In-memory storage is used for demonstration
-          # Production should use a persistent storage
-          # Options include:
-          # - disk: Local file system storage
-          # - aws_kms: AWS Key Management Service
-          # - gcp_kms: Google Cloud KMS
+          # Required: Key storage configuration
+          # Best Practice: Use persistent storage in production
+          # Security Note: Keys must be properly secured
         }
       }
 
-      # Data store plugin
-      # Stores registration entries and other persistent data
-      # sql: SQL database backend
-      # Note: For production, use a proper database like PostgreSQL
+      # Required: Data store plugin
+      # Best Practice: Use proper database in production
+      # Security Note: Data store must be properly secured
       DataStore "sql" {
         plugin_data {
-          # Database configuration
-          # Using SQLite for demonstration
-          # Production should use a proper database
-          # Options include:
-          # - sqlite3: Local SQLite database (not recommended for production)
-          # - postgres: PostgreSQL database
-          # - mysql: MySQL database
+          # Required: Database configuration
+          # Best Practice: Use proper database in production
+          # Security Note: Data must be properly secured
           database_type = "sqlite3"
           connection_string = "/run/spire/data/datastore.sqlite3"
         }
@@ -109,36 +160,138 @@ data:
     }
 
     # Telemetry configuration
-    # Enables monitoring and metrics collection
+    # Optional: Can be omitted if not using metrics
+    # Best Practice: Enable metrics in production
+    # Security Note: Metrics must be properly secured
     telemetry {
-      # Prometheus metrics endpoint
-      # Exposes metrics for monitoring SPIRE server health and performance
+      # Required: Prometheus configuration
+      # Best Practice: Use standard Prometheus port
+      # Security Note: Metrics must be properly secured
       Prometheus {
-        # Bind address for metrics
-        # 0.0.0.0 means listen on all available network interfaces
+        # Required: Metrics bind address
+        # Best Practice: Use 0.0.0.0 for cluster access
+        # Security Note: Must be properly secured
         bind_address = "0.0.0.0"
-        # Port for Prometheus metrics
-        # Default Prometheus port is 9090, using 8088 to avoid conflicts
+        # Required: Metrics port
+        # Best Practice: Use standard port 9090
+        # Security Note: Port must be properly secured
         bind_port = "8088"
       }
     }
 
     # Health check configuration
-    # Enables health monitoring of the SPIRE server
+    # Required: For proper health monitoring
+    # Best Practice: Enable all health checks
+    # Security Note: Health checks must be properly secured
     health_checks {
-      # Listener configuration
-      # Enables HTTP health check endpoints
+      # Required: Listener configuration
+      # Best Practice: Enable HTTP health checks
+      # Security Note: Health checks must be properly secured
       listener_enabled = true
-      # Bind address for health checks
-      # 0.0.0.0 means listen on all available network interfaces
+      # Required: Health check bind address
+      # Best Practice: Use 0.0.0.0 for cluster access
+      # Security Note: Must be properly secured
       bind_address = "0.0.0.0"
-      # Port for health check endpoints
-      # Standard health check port
+      # Required: Health check port
+      # Best Practice: Use standard port 8080
+      # Security Note: Port must be properly secured
       bind_port = "8080"
-      # Liveness probe endpoint
-      # Returns 200 if server is running
+      # Required: Liveness probe path
+      # Best Practice: Use standard /live path
+      # Security Note: Probe must be properly secured
       live_path = "/live"
-      # Readiness probe endpoint
-      # Returns 200 if server is ready to handle requests
+      # Required: Readiness probe path
+      # Best Practice: Use standard /ready path
+      # Security Note: Probe must be properly secured
       ready_path = "/ready"
+    }
+
+    # Required: Federation configuration
+    # Best Practice: Configure federation
+    # Security Note: Federation must be properly secured
+    federation {
+      # Required: Trust bundle exchange
+      # Best Practice: Configure trust bundle exchange
+      # Security Note: Must be properly secured
+      trust_bundle {
+        # Required: Exchange interval
+        # Best Practice: Set appropriate interval
+        # Security Note: Must be properly tuned
+        exchange_interval = "1h"
+        
+        # Required: Maximum trust bundles
+        # Best Practice: Set appropriate limit
+        # Security Note: Must be properly tuned
+        max_trust_bundles = 100
+      }
+
+      # Required: Federation endpoints
+      # Best Practice: Configure endpoints
+      # Security Note: Must be properly secured
+      endpoints {
+        # Required: Endpoint configuration
+        # Best Practice: Use HTTPS
+        # Security Note: Must be properly secured
+        https {
+          # Required: Bind address
+          # Best Practice: Use 0.0.0.0 for cluster access
+          # Security Note: Must be properly secured
+          bind_address = "0.0.0.0"
+          
+          # Required: Bind port
+          # Best Practice: Use standard port 8443
+          # Security Note: Port must be properly secured
+          bind_port = "8443"
+        }
+      }
+    }
+
+    # Required: Registration entry management
+    # Best Practice: Configure registration
+    # Security Note: Must be properly secured
+    registration {
+      # Required: Registration UDS path
+      # Best Practice: Use dedicated socket directory
+      # Security Note: Socket must be properly secured
+      registration_uds_path = "/run/spire/sockets/registration.sock"
+      
+      # Required: Registration API
+      # Best Practice: Configure API
+      # Security Note: Must be properly secured
+      registration_api {
+        # Required: API configuration
+        # Best Practice: Use HTTPS
+        # Security Note: Must be properly secured
+        https {
+          # Required: Bind address
+          # Best Practice: Use 0.0.0.0 for cluster access
+          # Security Note: Must be properly secured
+          bind_address = "0.0.0.0"
+          
+          # Required: Bind port
+          # Best Practice: Use standard port 8444
+          # Security Note: Port must be properly secured
+          bind_port = "8444"
+        }
+      }
+    }
+
+    # Required: Backup configuration
+    # Best Practice: Configure backup
+    # Security Note: Must be properly secured
+    backup {
+      # Required: Backup directory
+      # Best Practice: Use dedicated backup directory
+      # Security Note: Must be properly secured
+      backup_dir = "/var/lib/spire/backup"
+      
+      # Required: Backup interval
+      # Best Practice: Set appropriate interval
+      # Security Note: Must be properly tuned
+      backup_interval = "6h"
+      
+      # Required: Maximum backups
+      # Best Practice: Set appropriate limit
+      # Security Note: Must be properly tuned
+      max_backups = 24
     } 

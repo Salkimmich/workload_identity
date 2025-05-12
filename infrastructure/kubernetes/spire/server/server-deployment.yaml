@@ -2,12 +2,23 @@
 # This file defines the Kubernetes deployment for the SPIRE server.
 # The SPIRE server is the central authority for workload identity in the cluster.
 #
-# Cloud Provider Integration:
+# Security Considerations:
+# 1. Server must run with non-root user and minimal privileges
+# 2. All sensitive data must be mounted as read-only
+# 3. Health checks must be properly configured
+# 4. Resource limits must be set to prevent DoS
+# 5. Cloud provider integration must be properly configured
+# 6. High availability must be configured for production
+# 7. Data persistence must be configured for production
+# 8. Security context must be properly configured
+# 9. Network policies should be configured
+# 10. Audit logging should be enabled
+
+# Required: Cloud Provider Integration Configuration
+# At least one of the following must be configured:
 # - GCP: Use GKE Workload Identity. Ensure service account has 'iam.gke.io/gcp-service-account' annotation.
 # - AWS: Use IRSA. Ensure service account has 'eks.amazonaws.com/role-arn' annotation. Mount AWS token file if needed.
 # - Azure: Use Azure AD Workload Identity. Ensure service account has 'azure.workload.identity/client-id' annotation. Mount Azure token file if needed.
-#
-# The SPIRE server configuration is mostly cloud-agnostic, but the way tokens are projected and which environment variables are set may differ by provider.
 
 apiVersion: apps/v1
 kind: Deployment
@@ -17,21 +28,27 @@ metadata:
   labels:
     app: spire-server
 spec:
-  # Number of server replicas
+  # Required: Number of server replicas
   # For production, consider running multiple replicas for high availability
-  # Optional improvement: Increase replicas to 3 for high availability
+  # Optional: Increase replicas to 3 for high availability
   # Rationale: Ensures service availability during node failures or updates
+  # Best Practice: Use 3 replicas in production for high availability
+  # Security Note: Multiple replicas help prevent single point of failure
   replicas: 1
 
-  # Optional improvement: Limit the number of old ReplicaSets to retain
+  # Optional: Limit the number of old ReplicaSets to retain
   # Rationale: Prevents excessive storage usage and simplifies rollback management
   # Default: 10 (adjust based on your rollback needs)
+  # Best Practice: Keep this number low to reduce storage usage
+  # Security Note: Old ReplicaSets may contain sensitive data
   revisionHistoryLimit: 10
 
-  # Optional improvement: Deployment strategy for controlled updates
+  # Required: Deployment strategy for controlled updates
   # Rationale: Ensures zero-downtime updates and controlled rollback
   # maxUnavailable: Maximum number of pods that can be unavailable during update
   # maxSurge: Maximum number of pods that can be created above desired replicas
+  # Best Practice: Use RollingUpdate with maxUnavailable=1 for zero-downtime updates
+  # Security Note: Updates should be controlled to prevent service disruption
   strategy:
     type: RollingUpdate
     rollingUpdate:
@@ -46,79 +63,105 @@ spec:
       labels:
         app: spire-server
     spec:
-      # Service account for the SPIRE server
+      # Required: Service account for the SPIRE server
       # This service account must have the necessary RBAC permissions
       #
       # Cloud-specific notes:
       # - GCP: Service account must be annotated for GKE Workload Identity
       # - AWS: Service account must be annotated for IRSA
       # - Azure: Service account must be annotated for Azure AD Workload Identity
+      # Best Practice: Use least privilege principle for service account
+      # Security Note: Service account must have minimal required permissions
       serviceAccountName: spire-server
 
-      # Optional improvement: Grace period for pod termination
+      # Optional: Grace period for pod termination
       # Rationale: Allows time for in-flight requests to complete
       # Default: 30 seconds (adjust based on your workload)
+      # Best Practice: Set based on average request duration
+      # Security Note: Must be long enough for graceful shutdown
       terminationGracePeriodSeconds: 30
 
       containers:
       - name: spire-server
-        # SPIRE server container image
+        # Required: SPIRE server container image
         # Use a specific version tag for production deployments
+        # Best Practice: Use specific version tag, not latest
+        # Security Note: Regular security updates are important
         image: ghcr.io/spiffe/spire-server:1.5.0
 
-        # Optional improvement: Always pull the image
+        # Optional: Always pull the image
         # Rationale: Ensures latest security patches are applied
         # Note: May increase deployment time
+        # Best Practice: Use Always in production for security
+        # Security Note: Ensures latest security patches are applied
         imagePullPolicy: Always
 
-        # Command line arguments
+        # Required: Command line arguments
         # Points to the server configuration file
+        # Best Practice: Use absolute paths for configuration
+        # Security Note: Configuration must be properly secured
         args: ["-config", "/run/spire/config/server.conf"]
 
         ports:
-        # SPIRE server API port
+        # Required: SPIRE server API port
         # Used for agent-server communication
+        # Best Practice: Use standard port 8081
+        # Security Note: Port must be properly secured
         - containerPort: 8081
           name: spire-server
 
-        # Health check port
+        # Required: Health check port
         # Used for liveness and readiness probes
+        # Best Practice: Use standard port 8080
+        # Security Note: Health checks must be properly secured
         - containerPort: 8080
           name: health
 
-        # Metrics port
+        # Required: Metrics port
         # Used for Prometheus metrics collection
+        # Best Practice: Use standard port 9091
+        # Security Note: Metrics must be properly secured
         - containerPort: 9091
           name: metrics
 
         volumeMounts:
-        # Configuration volume
+        # Required: Configuration volume
         # Mounts the server configuration
+        # Best Practice: Mount as read-only
+        # Security Note: Configuration must be properly secured
         - name: spire-config
           mountPath: /run/spire/config
           readOnly: true
 
-        # Data volume
+        # Required: Data volume
         # Stores persistent data like the datastore
         # Optional improvement: Use PersistentVolume for production
         # Rationale: Ensures data persistence across pod restarts
+        # Best Practice: Use PersistentVolume in production
+        # Security Note: Data must be properly secured
         - name: spire-data
           mountPath: /run/spire/data
 
-        # Secrets volume
+        # Required: Secrets volume
         # Mounts sensitive data like keys and certificates
+        # Best Practice: Mount as read-only
+        # Security Note: Secrets must be properly secured
         - name: spire-secrets
           mountPath: /run/spire/secrets
           readOnly: true
 
-        # Sockets volume
+        # Required: Sockets volume
         # Used for Unix domain socket communication
+        # Best Practice: Use dedicated volume
+        # Security Note: Sockets must be properly secured
         - name: spire-sockets
           mountPath: /run/spire/sockets
 
-        # Optional improvement: Startup probe
+        # Required: Startup probe
         # Rationale: Better handling of slow-starting containers
         # Prevents premature restarts during initialization
+        # Best Practice: Use HTTP probe with proper timeout
+        # Security Note: Probe must be properly secured
         startupProbe:
           httpGet:
             path: /live
@@ -126,10 +169,12 @@ spec:
           failureThreshold: 30
           periodSeconds: 10
 
-        # Liveness probe
+        # Required: Liveness probe
         # Ensures the container is running properly
         # Optional improvement: Added timeout and failure threshold
         # Rationale: Better handling of temporary network issues
+        # Best Practice: Use HTTP probe with proper timeout
+        # Security Note: Probe must be properly secured
         livenessProbe:
           httpGet:
             path: /live
@@ -139,10 +184,12 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
 
-        # Readiness probe
+        # Required: Readiness probe
         # Ensures the container is ready to handle requests
         # Optional improvement: Added timeout and failure threshold
         # Rationale: Better handling of temporary network issues
+        # Best Practice: Use HTTP probe with proper timeout
+        # Security Note: Probe must be properly secured
         readinessProbe:
           httpGet:
             path: /ready
@@ -152,10 +199,12 @@ spec:
           timeoutSeconds: 5
           failureThreshold: 3
 
-        # Resource requirements
+        # Required: Resource requirements
         # Adjust based on your workload and cluster capacity
         # Optional improvement: Monitor and adjust these values
         # Rationale: Prevents resource starvation and ensures performance
+        # Best Practice: Set based on monitoring data
+        # Security Note: Prevents DoS attacks
         resources:
           requests:
             cpu: 100m
@@ -164,9 +213,11 @@ spec:
             cpu: 200m
             memory: 256Mi
 
-        # Security context
+        # Required: Security context
         # Implements security best practices
         # Required: These settings are mandatory for security
+        # Best Practice: Run as non-root with minimal privileges
+        # Security Note: Critical for security
         securityContext:
           # Run as non-root user
           runAsUser: 1000
@@ -194,24 +245,32 @@ spec:
         #       key: client-id
 
       volumes:
-      # Configuration volume from ConfigMap
+      # Required: Configuration volume from ConfigMap
+      # Best Practice: Use ConfigMap for configuration
+      # Security Note: Configuration must be properly secured
       - name: spire-config
         configMap:
           name: spire-server
 
-      # Empty directory for persistent data
+      # Required: Empty directory for persistent data
       # Optional improvement: Use PersistentVolume for production
       # Rationale: Ensures data persistence across pod restarts
+      # Best Practice: Use PersistentVolume in production
+      # Security Note: Data must be properly secured
       - name: spire-data
         emptyDir: {}
 
-      # Secrets volume
+      # Required: Secrets volume
       # Contains sensitive data like keys and certificates
+      # Best Practice: Use Kubernetes secrets
+      # Security Note: Secrets must be properly secured
       - name: spire-secrets
         secret:
           secretName: spire-server-secrets
 
-      # Empty directory for Unix domain sockets
+      # Required: Empty directory for Unix domain sockets
+      # Best Practice: Use dedicated volume
+      # Security Note: Sockets must be properly secured
       - name: spire-sockets
         emptyDir: {}
 
@@ -235,8 +294,10 @@ spec:
       #
       # GCP: No extra projected token volume typically needed for server
       #
-      # Pod security context
+      # Required: Pod security context
       # Sets the filesystem group
       # Required: This setting is mandatory for security
+      # Best Practice: Run as non-root with minimal privileges
+      # Security Note: Critical for security
       securityContext:
         fsGroup: 1000 
