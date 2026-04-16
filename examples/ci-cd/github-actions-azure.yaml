@@ -1,0 +1,80 @@
+# Secretless deployment to Azure using Federated Identity Credentials.
+#
+# Prerequisites (one-time setup):
+#   1. Create a user-assigned managed identity:
+#      az identity create \
+#        --name github-deploy \
+#        --resource-group YOUR_RESOURCE_GROUP \
+#        --location westeurope
+#
+#   2. Add a federated identity credential to the managed identity:
+#      az identity federated-credential create \
+#        --name github-actions-prod \
+#        --identity-name github-deploy \
+#        --resource-group YOUR_RESOURCE_GROUP \
+#        --issuer https://token.actions.githubusercontent.com \
+#        --subject "repo:YOUR_ORG/YOUR_REPO:environment:production" \
+#        --audience api://AzureADTokenExchange
+#
+#   3. Grant the managed identity the roles it needs:
+#      az role assignment create \
+#        --assignee YOUR_MANAGED_IDENTITY_CLIENT_ID \
+#        --role "Contributor" \
+#        --scope /subscriptions/YOUR_SUBSCRIPTION_ID/resourceGroups/YOUR_RESOURCE_GROUP
+#
+#   4. Add as GitHub secrets (these are IDs, not credentials — but treat them as secrets):
+#      AZURE_CLIENT_ID:       The managed identity's client ID (not secret)
+#      AZURE_TENANT_ID:       Your Azure AD tenant ID
+#      AZURE_SUBSCRIPTION_ID: Your Azure subscription ID
+#
+# Security notes:
+#   - The `subject` in the federated credential is `environment:production`.
+#     This means only jobs running in the `production` GitHub environment can
+#     authenticate. Jobs on other branches or environments cannot.
+#   - AZURE_CLIENT_ID is not a secret in the traditional sense — it's a public
+#     identifier. However, storing it in GitHub secrets is fine and keeps
+#     configuration tidy.
+#   - No client secret or certificate is created. No credentials are stored.
+
+name: Deploy to Azure
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Login to Azure
+        uses: azure/login@v2
+        with:
+          client-id: ${{ secrets.AZURE_CLIENT_ID }}
+          tenant-id: ${{ secrets.AZURE_TENANT_ID }}
+          subscription-id: ${{ secrets.AZURE_SUBSCRIPTION_ID }}
+          # enable-AzPSSession: true  # Uncomment if you need Azure PowerShell
+
+      - name: Verify identity (debug — remove in production)
+        run: az account show
+
+      # Add your deployment steps here.
+      # The Azure CLI and Azure SDK are authenticated automatically.
+
+      - name: Example — deploy to Azure Container Apps
+        run: |
+          az containerapp update \
+            --name myapp \
+            --resource-group ${{ vars.AZURE_RESOURCE_GROUP }} \
+            --image ${{ vars.REGISTRY }}/myapp:${{ github.sha }}
+

@@ -26,6 +26,16 @@ Below is a list of the key README files and guides available in this repository:
 
 10. **[Integration Guide](docs/integration_guide.md)**: Guidelines for integrating the workload identity system with other services and platforms, including cloud providers and service meshes.
 
+11. **[Agentic Identity Guide](docs/agentic_identity.md)**: Workload identity for AI agents and autonomous systems. SPIFFE ID patterns for agent roles, JIT access provisioning, MCP gateway enforcement, and migration from API key authentication.
+
+12. **[Post-Quantum Cryptography Migration Guide](docs/pqc_migration.md)**: Migration planning for NIST's 2024 PQC standards. Hybrid deployment architecture and compliance implications under CRA, EU AI Act, NIS2, and DORA.
+
+13. **[CI/CD OIDC Federation Guide](docs/cicd_oidc_federation.md)**: Secretless CI/CD with GitHub Actions and GitLab. Working configurations for AWS, GCP, and Azure.
+
+14. **[TPM 2.0 Node Attestation](docs/tpm_attestation.md)**: Hardware-rooted attestation for physical infrastructure, edge, and air-gapped environments.
+
+15. **[Resources](docs/resources.md)**: Curated references organized by use case.
+
 ## Getting Started
 
 To get started with the Workload Identity project, please refer to the [Architecture Guide](docs/architecture_guide.md) for an overview of the system design and the [Developer Guide](docs/developer_guide.md) for implementation details.
@@ -50,9 +60,17 @@ This repository implements a comprehensive workload identity system designed for
 
 ### Why Workload Identity?
 
-In today's cloud-native and hyper-distributed architectures, identity is no longer a human-first problem. Workloads—containers, VMs, and serverless functions—must authenticate and authorize dynamically, with provable integrity and no static secrets. Workload identity assigns each non-human actor a unique, verifiable identifier (such as a [SPIFFE ID](https://spiffe.io/)), enabling secure, policy-driven communication at scale.
+In today's cloud-native architectures, identity is no longer a human-first problem. By
+2025, enterprise environments averaged 45 non-human identities for every human identity -
+a ratio growing fast as AI agents, CI/CD pipelines, serverless functions, and automated
+workflows take on more operational work.
 
-This evolution draws from decades of identity protocols—Kerberos, X.509, OAuth2, and OIDC—but is tailored to the demands of ephemeral infrastructure, zero trust models, and sovereign cloud environments. Trust becomes contextual and time-bound. This architecture embodies that shift.
+Workloads must authenticate and authorize dynamically, with provable integrity and no
+static secrets. Workload identity assigns each non-human actor a unique, verifiable
+identifier (a [SPIFFE ID](https://spiffe.io/)), enabling secure, policy-driven
+communication at scale.
+
+For AI agents specifically, see the [Agentic Identity Guide](docs/agentic_identity.md).
 
 ## SPIRE Implementation
 
@@ -324,9 +342,10 @@ graph TD
 ## Getting Started
 
 ### Prerequisites
-- Kubernetes cluster (v1.19+)
-- Helm v3
+- Kubernetes cluster (v1.24+)
+- Helm v3.7+
 - kubectl
+- SPIRE v1.13.3+ (see [SPIRE releases](https://github.com/spiffe/spire/releases))
 - Access to container registry
 
 ### Quick Start
@@ -565,12 +584,16 @@ This project is licensed under the Apache License 2.0 - see the [LICENSE](LICENS
 - Early adopters and testers
 
 ## Future Considerations
-As software shifts from static services to autonomous, agentic systems, workload identity will become the foundation of runtime trust. In these architectures:
-- Identity must be ephemeral and context-aware
-- Trust must be verifiable and bound by time
-- Remote attestation must prove not just who a workload is, but why we trust its actions
+Workload identity is the foundation of runtime trust for autonomous systems. As software
+shifts from static services to AI agents that reason, delegate, and act across trust
+domains, the primitives in this repository become more important, not less.
 
-This system is designed as a platform to support that evolution.
+The [Agentic Identity Guide](docs/agentic_identity.md) covers how to extend this
+architecture to cover AI agents today. The [PQC Migration Guide](docs/pqc_migration.md)
+covers preparing this infrastructure for the post-quantum transition NIST formalized in
+2024.
+
+These are not future problems. They are current engineering requirements.
 
 ## Senior Engineer Review Guide
 

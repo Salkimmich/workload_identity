@@ -1,0 +1,86 @@
+# Secretless deployment to GCP using Workload Identity Federation.
+#
+# Prerequisites (one-time setup):
+#   1. Create a Workload Identity Pool:
+#      gcloud iam workload-identity-pools create "github-pool" \
+#        --project="YOUR_PROJECT_ID" \
+#        --location="global" \
+#        --display-name="GitHub Actions"
+#
+#   2. Create an OIDC provider in the pool:
+#      gcloud iam workload-identity-pools providers create-oidc "github-provider" \
+#        --project="YOUR_PROJECT_ID" \
+#        --location="global" \
+#        --workload-identity-pool="github-pool" \
+#        --attribute-mapping="google.subject=assertion.sub,attribute.repository=assertion.repository,attribute.environment=assertion.environment" \
+#        --issuer-uri="https://token.actions.githubusercontent.com"
+#
+#   3. Create a service account and grant it the roles it needs:
+#      gcloud iam service-accounts create deploy-sa \
+#        --project="YOUR_PROJECT_ID"
+#      gcloud projects add-iam-policy-binding YOUR_PROJECT_ID \
+#        --member="serviceAccount:deploy-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+#        --role="roles/storage.objectAdmin"
+#
+#   4. Allow the Workload Identity Pool to impersonate the service account,
+#      scoped to jobs running in the production environment:
+#      gcloud iam service-accounts add-iam-policy-binding \
+#        "deploy-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com" \
+#        --project="YOUR_PROJECT_ID" \
+#        --role="roles/iam.workloadIdentityUser" \
+#        --member="principalSet://iam.googleapis.com/projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/attribute.environment/production"
+#
+#   5. Add as repository variables:
+#      GCP_WIF_PROVIDER: projects/YOUR_PROJECT_NUMBER/locations/global/workloadIdentityPools/github-pool/providers/github-provider
+#      GCP_SERVICE_ACCOUNT: deploy-sa@YOUR_PROJECT_ID.iam.gserviceaccount.com
+#
+# Security notes:
+#   - The principalSet condition `attribute.environment/production` means only
+#     jobs running in the `production` GitHub environment can impersonate the
+#     service account. This prevents any branch push from deploying to production.
+#   - No service account keys are created. No credentials are stored anywhere.
+
+name: Deploy to GCP
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production
+
+    permissions:
+      id-token: write
+      contents: read
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Authenticate to Google Cloud
+        uses: google-github-actions/auth@v2
+        with:
+          workload_identity_provider: ${{ vars.GCP_WIF_PROVIDER }}
+          service_account: ${{ vars.GCP_SERVICE_ACCOUNT }}
+          # token_format: 'access_token'  # Uncomment if you need an OAuth token
+          # directly rather than Application Default Credentials
+
+      - name: Set up Cloud SDK
+        uses: google-github-actions/setup-gcloud@v2
+
+      - name: Verify identity (debug — remove in production)
+        run: gcloud auth list
+
+      # Add your deployment steps here.
+      # Application Default Credentials (ADC) are configured automatically.
+      # All gcloud commands and GCP client libraries will use them.
+
+      - name: Example — push to Artifact Registry
+        run: |
+          gcloud auth configure-docker ${{ vars.GCP_REGION }}-docker.pkg.dev
+          docker push ${{ vars.GCP_REGION }}-docker.pkg.dev/${{ vars.GCP_PROJECT }}/images/myapp:${{ github.sha }}
+

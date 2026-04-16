@@ -18,11 +18,13 @@ This guide provides comprehensive instructions for developers working on the wor
 go >= 1.20
 docker >= 20.10
 kubectl >= 1.24
+helm >= 3.7
 kind >= 0.20
 openssl >= 3.0
 
 # Required services
 kubernetes >= 1.24
+spire >= 1.13.3
 postgresql >= 14
 ```
 

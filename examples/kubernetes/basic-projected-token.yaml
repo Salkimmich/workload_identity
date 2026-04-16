@@ -1,0 +1,64 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: my-service
+  namespace: production
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: my-service
+  namespace: production
+spec:
+  replicas: 2
+  selector:
+    matchLabels:
+      app: my-service
+  template:
+    metadata:
+      labels:
+        app: my-service
+        # Pod label used as a SPIRE workload selector — keep it stable across restarts
+        spiffe-workload: my-service
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: my-service
+
+      volumes:
+        # Projected token for SPIRE attestation
+        - name: spire-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: spire-server      # Must match SPIRE Server's expected audience
+                  expirationSeconds: 600      # 10 minutes — rotated automatically before expiry
+                  path: token
+
+        # SPIRE Agent socket (for receiving SVIDs)
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: DirectoryOrCreate
+
+      containers:
+        - name: my-service
+          image: my-service:latest
+
+          volumeMounts:
+            - name: spire-token
+              mountPath: /var/run/secrets/tokens
+              readOnly: true
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+
+          # Security context — required for SPIRE hardened deployments
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+

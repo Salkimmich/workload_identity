@@ -1,0 +1,54 @@
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: data-pipeline-agent
+  namespace: ai-agents
+
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-pipeline-agent
+  namespace: ai-agents
+spec:
+  template:
+    metadata:
+      labels:
+        app: data-pipeline-agent
+        agent-role: data-pipeline-reader    # SPIRE selector
+        spiffe-workload: data-pipeline-agent
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: data-pipeline-agent
+
+      volumes:
+        - name: spire-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: spire-server
+                  expirationSeconds: 300     # 5 minutes — shorter for agentic workloads
+                  path: token
+        - name: spire-agent-socket
+          hostPath:
+            path: /run/spire/sockets
+            type: DirectoryOrCreate
+
+      containers:
+        - name: agent
+          image: data-pipeline-agent:latest
+          volumeMounts:
+            - name: spire-token
+              mountPath: /var/run/secrets/tokens
+              readOnly: true
+            - name: spire-agent-socket
+              mountPath: /run/spire/sockets
+              readOnly: true
+          securityContext:
+            runAsNonRoot: true
+            runAsUser: 1000
+            readOnlyRootFilesystem: true
+            allowPrivilegeEscalation: false
+            capabilities:
+              drop: ["ALL"]
+

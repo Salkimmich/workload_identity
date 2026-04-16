@@ -261,6 +261,55 @@ spec:
 - **Optional fields** can be omitted or customized as needed.
 - Always refer to your cloud provider's documentation for the latest requirements and best practices.
 
+## Production Deployment with Helm Charts Hardened
+
+Use Helm to deploy SPIRE and workload components with hardened defaults. Pin chart versions, lock image tags to supported releases, and require explicit values for security-sensitive settings in CI.
+
+### Baseline hardened values
+
+```yaml
+spire:
+  server:
+    image:
+      repository: ghcr.io/spiffe/spire-server
+      tag: "1.13.3"
+    podSecurityContext:
+      runAsNonRoot: true
+      fsGroup: 1000
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+  agent:
+    image:
+      repository: ghcr.io/spiffe/spire-agent
+      tag: "1.13.3"
+    podSecurityContext:
+      runAsNonRoot: true
+      fsGroup: 1000
+    containerSecurityContext:
+      allowPrivilegeEscalation: false
+      readOnlyRootFilesystem: true
+      capabilities:
+        drop: ["ALL"]
+```
+
+### Bundle publisher refresh hint
+
+If you publish trust bundles to S3, configure `refresh_hint` to reduce stale-bundle windows:
+
+```hcl
+BundlePublisher "aws_s3" {
+  plugin_data {
+    region = "eu-west-1"
+    bucket = "my-trust-bundles"
+    object_key = "spiffe-bundle.json"
+    refresh_hint = "300"
+  }
+}
+```
+
 ## Security Configuration
 
 ### 1. TLS Configuration

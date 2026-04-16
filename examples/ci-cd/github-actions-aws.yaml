@@ -1,0 +1,81 @@
+# Secretless deployment to AWS using OIDC workload identity federation.
+#
+# Prerequisites (one-time setup):
+#   1. Register GitHub as an OIDC provider in your AWS account:
+#      aws iam create-open-id-connect-provider \
+#        --url https://token.actions.githubusercontent.com \
+#        --client-id-list sts.amazonaws.com \
+#        --thumbprint-list 6938fd4d98bab03faadb97b34396831e3780aea1
+#
+#   2. Create an IAM role with the following trust policy:
+#      {
+#        "Version": "2012-10-17",
+#        "Statement": [{
+#          "Effect": "Allow",
+#          "Principal": {
+#            "Federated": "arn:aws:iam::YOUR_ACCOUNT_ID:oidc-provider/token.actions.githubusercontent.com"
+#          },
+#          "Action": "sts:AssumeRoleWithWebIdentity",
+#          "Condition": {
+#            "StringEquals": {
+#              "token.actions.githubusercontent.com:aud": "sts.amazonaws.com",
+#              "token.actions.githubusercontent.com:sub": "repo:YOUR_ORG/YOUR_REPO:environment:production"
+#            }
+#          }
+#        }]
+#      }
+#
+#   3. Add AWS_DEPLOY_ROLE_ARN as a repository variable (not a secret — it's not sensitive):
+#      Settings → Secrets and variables → Actions → Variables → New repository variable
+#      Name: AWS_DEPLOY_ROLE_ARN
+#      Value: arn:aws:iam::YOUR_ACCOUNT_ID:role/YOUR_ROLE_NAME
+#
+# Security notes:
+#   - Matching on `environment:production` (not `ref:refs/heads/main`) scopes
+#     the trust to jobs that have passed the production environment's required
+#     reviewers gate. Any branch can push to main; only approved jobs can deploy.
+#   - `id-token: write` must be set explicitly at the job level.
+#   - The AWS credential issued by STS is valid for 1 hour by default.
+#     Adjust `role-session-duration` if your deployment takes longer.
+
+name: Deploy to AWS
+
+on:
+  push:
+    branches:
+      - main
+
+jobs:
+  deploy:
+    name: Deploy
+    runs-on: ubuntu-latest
+    environment: production   # Triggers required reviewer check if configured
+
+    permissions:
+      id-token: write    # Required to request the OIDC JWT
+      contents: read     # Required to check out the repository
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Configure AWS credentials
+        uses: aws-actions/configure-aws-credentials@v4
+        with:
+          role-to-assume: ${{ vars.AWS_DEPLOY_ROLE_ARN }}
+          role-session-name: GitHubActions-${{ github.run_id }}
+          aws-region: eu-west-1
+          # role-duration-seconds: 3600  # Uncomment and increase for long deployments
+
+      - name: Verify identity (debug — remove in production)
+        run: aws sts get-caller-identity
+
+      # Add your deployment steps here.
+      # The AWS_ACCESS_KEY_ID, AWS_SECRET_ACCESS_KEY, and AWS_SESSION_TOKEN
+      # environment variables are set automatically by the configure step.
+      # All AWS SDK calls in subsequent steps will use these credentials.
+
+      - name: Example — sync to S3
+        run: |
+          aws s3 sync ./dist s3://${{ vars.S3_BUCKET }}/
+

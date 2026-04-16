@@ -1,0 +1,60 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: data-pipeline
+  namespace: production
+spec:
+  selector:
+    matchLabels:
+      app: data-pipeline
+  template:
+    metadata:
+      labels:
+        app: data-pipeline
+        spiffe-workload: data-pipeline
+    spec:
+      automountServiceAccountToken: false
+      serviceAccountName: data-pipeline
+
+      volumes:
+        # Token for SPIRE attestation
+        - name: spire-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: spire-server
+                  expirationSeconds: 600
+                  path: token
+
+        # Token for AWS IRSA (separate audience, separate token)
+        - name: aws-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: sts.amazonaws.com
+                  expirationSeconds: 600
+                  path: token
+
+        # Token for Vault authentication
+        - name: vault-token
+          projected:
+            sources:
+              - serviceAccountToken:
+                  audience: vault
+                  expirationSeconds: 600
+                  path: token
+
+      containers:
+        - name: data-pipeline
+          image: data-pipeline:latest
+          volumeMounts:
+            - name: spire-token
+              mountPath: /var/run/secrets/spire
+              readOnly: true
+            - name: aws-token
+              mountPath: /var/run/secrets/aws
+              readOnly: true
+            - name: vault-token
+              mountPath: /var/run/secrets/vault
+              readOnly: true
+

@@ -71,7 +71,7 @@ spec:
         # Use a specific version tag for production deployments
         # Best Practice: Use specific version tag, not latest
         # Security Note: Regular security updates are important
-        image: ghcr.io/spiffe/spire-agent:1.5.0
+        image: ghcr.io/spiffe/spire-agent:1.13.3
 
         # Optional: Always pull the image
         # Ensures latest security patches are applied

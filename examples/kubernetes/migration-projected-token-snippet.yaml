@@ -1,0 +1,14 @@
+spec:
+  # Disable the legacy auto-mounted token
+  automountServiceAccountToken: false
+
+  volumes:
+    # Replace with an explicit projected token
+    - name: spire-token
+      projected:
+        sources:
+          - serviceAccountToken:
+              audience: spire-server
+              expirationSeconds: 600
+              path: token
+
